@@ -20,6 +20,7 @@
         .summary-card .amount { font-size: 32px; font-weight: bold; color: #667eea; }
         .summary-card.debt .amount { color: #dc3545; }
         .summary-card.income .amount { color: #28a745; }
+        .stat-label { color: #888; font-size: 12px; margin-top: 5px; }
         .card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
         h2 { color: #333; margin-bottom: 20px; font-size: 22px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
@@ -32,10 +33,10 @@
         input:focus, select:focus { outline: none; border-color: #667eea; }
         button, .btn { padding: 10px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 600; transition: transform 0.2s; text-decoration: none; display: inline-block; }
         button:hover, .btn:hover { transform: translateY(-2px); }
-        .delete-btn { background: #dc3545; padding: 6px 12px; font-size: 12px; }
-        .delete-btn:hover { background: #c82333; }
-        .edit-btn { background: #ffc107; padding: 6px 12px; font-size: 12px; margin-right: 5px; }
-        .edit-btn:hover { background: #e0a800; }
+        .delete-btn { background: #ffc9c9; color: #000; padding: 6px 12px; font-size: 12px; text-decoration: none; border-radius: 4px; }
+        .delete-btn:hover { background: #ffb3b3; }
+        .edit-btn { background: #fff3cd; color: #000; padding: 6px 12px; font-size: 12px; margin-right: 5px; text-decoration: none; border-radius: 4px; }
+        .edit-btn:hover { background: #ffe69c; }
         .actions { display: flex; gap: 5px; }
     </style>
 </head>
@@ -66,7 +67,7 @@
                 <% let monthlyIncome = 0; %>
                 <% income.forEach(item => { 
                     if (item.frequency === 'weekly') monthlyIncome += item.amount * 4.33;
-                    else if (item.frequency === 'biweekly') monthlyIncome += item.amount * 2.17;
+                    else if (item.frequency === 'biweekly') monthlyIncome += item.amount * 2.166667;
                     else monthlyIncome += item.amount;
                 }); %>
                 <div class="amount">$<%= monthlyIncome.toFixed(2) %></div>
@@ -78,8 +79,17 @@
                 <div class="amount">$<%= totalBalance.toFixed(2) %></div>
             </div>
             <div class="summary-card">
-                <h3>📊 Active Subscriptions</h3>
-                <div class="amount"><%= subscriptions.length %></div>
+                <h3>📊 Subscription Total</h3>
+                <% let subscriptionTotal = 0; %>
+                <% subscriptions.forEach(sub => { 
+                    let amount = sub.amount;
+                    if (sub.frequency === 'daily') amount *= 30;
+                    else if (sub.frequency === 'weekly') amount *= 4.33;
+                    else if (sub.frequency === 'yearly') amount /= 12;
+                    subscriptionTotal += amount;
+                }); %>
+                <div class="amount">$<%= subscriptionTotal.toFixed(2) %></div>
+                <div class="stat-label"><%= subscriptions.length %> subscriptions/month</div>
             </div>
         </div>
 
