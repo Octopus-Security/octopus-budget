@@ -86,9 +86,6 @@ const getDatabase = (username) => {
         }
     });
 
-    // Sync the models with the database
-    sequelize.sync();
-
     return {
         sequelize,
         Subscription,
