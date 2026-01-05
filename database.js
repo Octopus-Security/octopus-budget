@@ -20,8 +20,12 @@ const User = authDb.define('User', {
     }
 });
 
-// Initialize auth database
-authDb.sync();
+// Initialize auth database (async - will be awaited in app startup)
+const initAuthDb = async () => {
+    await authDb.sync();
+};
+
+initAuthDb().catch(err => console.error('Error initializing auth database:', err));
 
 const getDatabase = (username) => {
     // Initialize Sequelize with SQLite
