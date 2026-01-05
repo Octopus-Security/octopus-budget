@@ -10,8 +10,8 @@ RUN npm install
 # Copy the rest of the application source code
 COPY . .
 
-# Change ownership of the entire application directory to the node user
-RUN chown -R node:node /usr/src/app
+# Create data directory and change ownership of the entire application directory to the node user
+RUN mkdir -p /usr/src/app/data && chown -R node:node /usr/src/app
  
 # Switch to the non-root user for security
 USER node
