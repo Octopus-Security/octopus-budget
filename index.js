@@ -46,21 +46,29 @@ app.get('/login', (req, res) => {
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     
+    console.log('Login attempt for username:', username);
+    
     try {
+        console.log('Looking up user...');
         const user = await User.findOne({ where: { username } });
         
         if (!user) {
+            console.log('User not found');
             return res.render('login', { title: 'Login', error: 'User not found', mode: 'login' });
         }
         
+        console.log('User found, comparing password...');
         const validPassword = await bcrypt.compare(password, user.password);
         
         if (validPassword) {
+            console.log('Password valid, syncing database...');
             req.session.user = { username };
             const { sequelize } = getDatabase(username);
             await sequelize.sync();
+            console.log('Sync complete, redirecting...');
             res.redirect('/');
         } else {
+            console.log('Invalid password');
             res.render('login', { title: 'Login', error: 'Invalid password', mode: 'login' });
         }
     } catch (error) {
@@ -202,4 +210,5 @@ app.post('/debts', requireLogin, async (req, res) => {
 
 app.listen(port, () => {
   console.log(`Budget Tracker app listening at http://localhost:${port}`);
+  console.log(`Data directory: ${dataDir}`);
 });
