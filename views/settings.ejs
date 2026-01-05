@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; background: #f5f7fa; }
+        nav { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 20px; }
+        nav .container { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        nav h1 { font-size: 24px; }
+        nav .nav-links { display: flex; gap: 20px; flex-wrap: wrap; }
+        nav a { color: white; text-decoration: none; padding: 8px 16px; border-radius: 5px; }
+        nav a:hover { background: rgba(255,255,255,0.2); }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { color: #333; margin-bottom: 20px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; color: #555; font-weight: 500; }
+        input { width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px; }
+        input:focus { outline: none; border-color: #667eea; }
+        button { padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 600; }
+        button:hover { transform: translateY(-2px); }
+        .btn-danger { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); margin-top: 10px; }
+        .error { background: #fee; color: #c33; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        .success { background: #efe; color: #3c3; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        .danger-zone { border: 2px solid #dc3545; padding: 20px; border-radius: 8px; margin-top: 30px; }
+        .danger-zone h3 { color: #dc3545; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <h1>💰 Budget Tracker</h1>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/settings">Settings</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="card">
+            <h2>Account Settings</h2>
+            <p style="margin-bottom: 20px; color: #666;">Logged in as: <strong><%= user.username %></strong></p>
+            
+            <% if (error) { %>
+                <div class="error"><%= error %></div>
+            <% } %>
+            <% if (success) { %>
+                <div class="success"><%= success %></div>
+            <% } %>
+            
+            <h3 style="margin-bottom: 15px;">Change Password</h3>
+            <form method="POST" action="/settings/change-password">
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <input type="password" name="currentPassword" required>
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" name="newPassword" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label>Confirm New Password</label>
+                    <input type="password" name="confirmPassword" required minlength="6">
+                </div>
+                <button type="submit">Change Password</button>
+            </form>
+        </div>
+
+        <div class="card danger-zone">
+            <h3>⚠️ Danger Zone</h3>
+            <p style="margin-bottom: 15px; color: #666;">This action cannot be undone. All your data will be permanently deleted.</p>
+            <form method="POST" action="/settings/delete-account" onsubmit="return confirm('Are you sure you want to delete your account? This cannot be undone!');">
+                <div class="form-group">
+                    <label>Enter your password to confirm</label>
+                    <input type="password" name="password" required>
+                </div>
+                <button type="submit" class="btn-danger">Delete My Account</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
