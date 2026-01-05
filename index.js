@@ -1,11 +1,13 @@
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
+const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 const getDatabase = require('./database');
+const { User, authDb } = require('./database');
 
 // Ensure data directory exists
 const dataDir = path.join(__dirname, 'data');
@@ -38,20 +40,70 @@ const requireLogin = (req, res, next) => {
 };
 
 app.get('/login', (req, res) => {
-    res.render('login', { title: 'Login', error: null });
+    res.render('login', { title: 'Login', error: null, mode: 'login' });
 });
 
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    const validPassword = process.env.APP_PASSWORD || 'password';
     
-    if (password === validPassword && username && username.length > 0) {
+    try {
+        const user = await User.findOne({ where: { username } });
+        
+        if (!user) {
+            return res.render('login', { title: 'Login', error: 'User not found', mode: 'login' });
+        }
+        
+        const validPassword = await bcrypt.compare(password, user.password);
+        
+        if (validPassword) {
+            req.session.user = { username };
+            const { sequelize } = getDatabase(username);
+            await sequelize.sync();
+            res.redirect('/');
+        } else {
+            res.render('login', { title: 'Login', error: 'Invalid password', mode: 'login' });
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        res.render('login', { title: 'Login', error: 'Login failed', mode: 'login' });
+    }
+});
+
+app.get('/register', (req, res) => {
+    res.render('login', { title: 'Register', error: null, mode: 'register' });
+});
+
+app.post('/register', async (req, res) => {
+    const { username, password, confirmPassword } = req.body;
+    
+    try {
+        if (!username || !password || !confirmPassword) {
+            return res.render('login', { title: 'Register', error: 'All fields required', mode: 'register' });
+        }
+        
+        if (password !== confirmPassword) {
+            return res.render('login', { title: 'Register', error: 'Passwords do not match', mode: 'register' });
+        }
+        
+        if (password.length < 6) {
+            return res.render('login', { title: 'Register', error: 'Password must be at least 6 characters', mode: 'register' });
+        }
+        
+        const existingUser = await User.findOne({ where: { username } });
+        if (existingUser) {
+            return res.render('login', { title: 'Register', error: 'Username already exists', mode: 'register' });
+        }
+        
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await User.create({ username, password: hashedPassword });
+        
         req.session.user = { username };
         const { sequelize } = getDatabase(username);
-        sequelize.sync();
+        await sequelize.sync();
         res.redirect('/');
-    } else {
-        res.render('login', { title: 'Login', error: 'Invalid credentials' });
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.render('login', { title: 'Register', error: 'Registration failed', mode: 'register' });
     }
 });
 

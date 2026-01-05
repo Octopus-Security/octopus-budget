@@ -1,11 +1,34 @@
 const { Sequelize, DataTypes } = require('sequelize');
 const path = require('path');
 
+// Shared auth database for all users
+const authDb = new Sequelize({
+    dialect: 'sqlite',
+    storage: path.join(__dirname, 'data', 'users.sqlite'),
+    logging: false
+});
+
+const User = authDb.define('User', {
+    username: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        unique: true
+    },
+    password: {
+        type: DataTypes.STRING,
+        allowNull: false
+    }
+});
+
+// Initialize auth database
+authDb.sync();
+
 const getDatabase = (username) => {
     // Initialize Sequelize with SQLite
     const sequelize = new Sequelize({
         dialect: 'sqlite',
-        storage: path.join(__dirname, 'data', `${username}_database.sqlite`)
+        storage: path.join(__dirname, 'data', `${username}_database.sqlite`),
+        logging: false
     });
 
     // Define the models
@@ -72,3 +95,5 @@ const getDatabase = (username) => {
 }
 
 module.exports = getDatabase;
+module.exports.User = User;
+module.exports.authDb = authDb;
