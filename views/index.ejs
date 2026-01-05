@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <style>
+        body { font-family: sans-serif; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .container { display: flex; flex-wrap: wrap; }
+        .section { flex: 1; padding: 1em; }
+    </style>
+</head>
+<body>
+    <% if (user) { %>
+        <p>Welcome, <%= user.username %>! <a href="/logout">Logout</a></p>
+    <% } %>
+    <h1>Welcome to <%= title %></h1>
+
+    <div class="container">
+        <div class="section">
+            <h2>Total Owed</h2>
+            <% let totalOwed = 0; %>
+            <% debts.forEach(debt => { totalOwed += debt.balance; }); %>
+            <p>$<%= totalOwed.toFixed(2) %></p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section">
+            <h2>Subscriptions</h2>
+            <table>
+                <tr>
+                    <th>Name</th>
+                    <th>Amount</th>
+                    <th>Frequency</th>
+                    <th>Actions</th>
+                </tr>
+                <% subscriptions.forEach(subscription => { %>
+                    <tr>
+                        <td><%= subscription.name %></td>
+                        <td><%= subscription.amount %></td>
+                        <td><%= subscription.frequency %></td>
+                        <td>
+                            <a href="/subscriptions/edit/<%= subscription.id %>">Edit</a>
+                            <a href="/subscriptions/delete/<%= subscription.id %>">Delete</a>
+                        </td>
+                    </tr>
+                <% }); %>
+            </table>
+            <h3>Add Subscription</h3>
+            <form action="/subscriptions" method="post">
+                <input type="text" name="name" placeholder="Name" required>
+                <input type="number" step="0.01" name="amount" placeholder="Amount" required>
+                <select name="frequency">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                </select>
+                <button type="submit">Add</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Accounts</h2>
+            <table>
+                <tr>
+                    <th>Name</th>
+                    <th>Balance</th>
+                </tr>
+                <% accounts.forEach(account => { %>
+                    <tr>
+                        <td><%= account.name %></td>
+                        <td><%= account.balance %></td>
+                    </tr>
+                <% }); %>
+            </table>
+            <h3>Add/Update Account</h3>
+            <form action="/accounts" method="post">
+                <input type="text" name="name" placeholder="Name" required>
+                <input type="number" step="0.01" name="balance" placeholder="Balance" required>
+                <button type="submit">Add/Update</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="section">
+            <h2>Income</h2>
+            <table>
+                <tr>
+                    <th>Amount</th>
+                    <th>Frequency</th>
+                </tr>
+                <% income.forEach(item => { %>
+                    <tr>
+                        <td><%= item.amount %></td>
+                        <td><%= item.frequency %></td>
+                    </tr>
+                <% }); %>
+            </table>
+            <h3>Add/Update Income</h3>
+            <form action="/income" method="post">
+                <input type="number" step="0.01" name="amount" placeholder="Amount" required>
+                <select name="frequency">
+                    <option value="weekly">Weekly</option>
+                    <option value="biweekly">Bi-weekly</option>
+                    <option value="monthly">Monthly</option>
+                </select>
+                <button type="submit">Add/Update</button>
+            </form>
+        </div>
+
+        <div class="section">
+            <h2>Debts</h2>
+            <table>
+                <tr>
+                    <th>Name</th>
+                    <th>Balance</th>
+                </tr>
+                <% debts.forEach(debt => { %>
+                    <tr>
+                        <td><%= debt.name %></td>
+                        <td><%= debt.balance %></td>
+                    </tr>
+                <% }); %>
+            </table>
+            <h3>Add/Update Debt</h3>
+            <form action="/debts" method="post">
+                <select name="name">
+                    <option value="Affirm">Affirm</option>
+                    <option value="Klarna">Klarna</option>
+                    <option value="Capital One Quicksilver One">Capital One Quicksilver One</option>
+                    <option value="Capital One Savor">Capital One Savor</option>
+                    <option value="Milestone Mastercard">Milestone Mastercard</option>
+                    <option value="Amazon Visa">Amazon Visa</option>
+                </select>
+                <input type="number" step="0.01" name="balance" placeholder="Balance" required>
+                <button type="submit">Add/Update</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

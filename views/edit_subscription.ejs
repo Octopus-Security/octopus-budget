@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+</head>
+<body>
+    <h1><%= title %></h1>
+    <form action="/subscriptions/edit/<%= subscription.id %>" method="post">
+        <input type="text" name="name" placeholder="Name" value="<%= subscription.name %>" required>
+        <input type="number" step="0.01" name="amount" placeholder="Amount" value="<%= subscription.amount %>" required>
+        <select name="frequency">
+            <option value="daily" <%= subscription.frequency === 'daily' ? 'selected' : '' %>>Daily</option>
+            <option value="weekly" <%= subscription.frequency === 'weekly' ? 'selected' : '' %>>Weekly</option>
+            <option value="monthly" <%= subscription.frequency === 'monthly' ? 'selected' : '' %>>Monthly</option>
+            <option value="yearly" <%= subscription.frequency === 'yearly' ? 'selected' : '' %>>Yearly</option>
+        </select>
+        <button type="submit">Update</button>
+    </form>
+</body>
+</html>

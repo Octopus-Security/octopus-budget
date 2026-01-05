@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  budget-tracker:
+    build: .
+    container_name: octopus_budget_tracker
+    restart: always
+    ports:
+      - "3001:3000"
+    volumes:
+      - budget_data:/usr/src/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
+      - APP_PASSWORD=${APP_PASSWORD:-password}
+    networks:
+      - budget_network
+
+networks:
+  budget_network:
+    driver: bridge
+
+volumes:
+  budget_data:
