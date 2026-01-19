@@ -18,6 +18,7 @@ if (!fs.existsSync(dataDir)) {
 app.set('view engine', 'ejs');
 app.set('views', './views');
 
+app.use(express.json()); // Add JSON body parsing for API
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
     secret: process.env.SESSION_SECRET || 'change-me-in-production',
@@ -38,6 +39,10 @@ const requireLogin = (req, res, next) => {
         res.redirect('/login');
     }
 };
+
+// Mount API routes
+const apiRouter = require('./api');
+app.use('/api', apiRouter);
 
 app.get('/login', (req, res) => {
     res.render('login', { title: 'Login', error: null, mode: 'login' });
