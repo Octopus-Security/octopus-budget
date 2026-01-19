@@ -2,5 +2,7 @@ node_modules/
 npm-debug.log
 .env
 data/*.db
+data/*.sqlite
 *.db
+*.sqlite
 package-lock.json
