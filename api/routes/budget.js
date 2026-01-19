@@ -4,6 +4,10 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Validation constants
+const VALID_SUBSCRIPTION_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'];
+const VALID_INCOME_FREQUENCIES = ['weekly', 'biweekly', 'monthly'];
+
 // Apply authentication to all budget routes
 router.use(authenticateToken);
 
@@ -28,8 +32,8 @@ router.post('/subscriptions', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Name, amount, and frequency are required' });
         }
 
-        if (!['daily', 'weekly', 'monthly', 'yearly'].includes(frequency)) {
-            return res.status(400).json({ success: false, error: 'Invalid frequency. Must be daily, weekly, monthly, or yearly' });
+        if (!VALID_SUBSCRIPTION_FREQUENCIES.includes(frequency)) {
+            return res.status(400).json({ success: false, error: `Invalid frequency. Must be ${VALID_SUBSCRIPTION_FREQUENCIES.join(', ')}` });
         }
 
         const { Subscription } = getDatabase(req.user.username);
@@ -54,8 +58,8 @@ router.put('/subscriptions/:id', async (req, res) => {
         }
 
         // Validate frequency if provided
-        if (frequency && !['daily', 'weekly', 'monthly', 'yearly'].includes(frequency)) {
-            return res.status(400).json({ success: false, error: 'Invalid frequency. Must be daily, weekly, monthly, or yearly' });
+        if (frequency && !VALID_SUBSCRIPTION_FREQUENCIES.includes(frequency)) {
+            return res.status(400).json({ success: false, error: `Invalid frequency. Must be ${VALID_SUBSCRIPTION_FREQUENCIES.join(', ')}` });
         }
 
         // Update fields
@@ -192,8 +196,8 @@ router.post('/income', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Amount and frequency are required' });
         }
 
-        if (!['weekly', 'biweekly', 'monthly'].includes(frequency)) {
-            return res.status(400).json({ success: false, error: 'Invalid frequency. Must be weekly, biweekly, or monthly' });
+        if (!VALID_INCOME_FREQUENCIES.includes(frequency)) {
+            return res.status(400).json({ success: false, error: `Invalid frequency. Must be ${VALID_INCOME_FREQUENCIES.join(', ')}` });
         }
 
         const { Income } = getDatabase(req.user.username);
@@ -218,8 +222,8 @@ router.put('/income/:id', async (req, res) => {
         }
 
         // Validate frequency if provided
-        if (frequency && !['weekly', 'biweekly', 'monthly'].includes(frequency)) {
-            return res.status(400).json({ success: false, error: 'Invalid frequency. Must be weekly, biweekly, or monthly' });
+        if (frequency && !VALID_INCOME_FREQUENCIES.includes(frequency)) {
+            return res.status(400).json({ success: false, error: `Invalid frequency. Must be ${VALID_INCOME_FREQUENCIES.join(', ')}` });
         }
 
         // Update fields
