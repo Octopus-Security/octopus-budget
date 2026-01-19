@@ -27,6 +27,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(session({
     secret: process.env.SESSION_SECRET || 'change-me-in-production',
     resave: false,
     saveUninitialized: true,
@@ -35,7 +36,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
 }));
-app.use(bodyParser.urlencoded({ extended: true }));
 
 // JWT Configuration
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'change-me-in-production';
