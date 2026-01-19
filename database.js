@@ -48,6 +48,14 @@ const getDatabase = (username) => {
         frequency: {
             type: DataTypes.ENUM('daily', 'weekly', 'monthly', 'yearly'),
             allowNull: false
+        },
+        startDate: {
+            type: DataTypes.DATE,
+            allowNull: true
+        },
+        notes: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     });
 
@@ -60,10 +68,22 @@ const getDatabase = (username) => {
         balance: {
             type: DataTypes.FLOAT,
             allowNull: false
+        },
+        accountType: {
+            type: DataTypes.STRING,
+            allowNull: true
+        },
+        notes: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     });
 
     const Income = sequelize.define('Income', {
+        source: {
+            type: DataTypes.STRING,
+            allowNull: true
+        },
         amount: {
             type: DataTypes.FLOAT,
             allowNull: false
@@ -71,6 +91,14 @@ const getDatabase = (username) => {
         frequency: {
             type: DataTypes.ENUM('weekly', 'biweekly', 'monthly'),
             allowNull: false
+        },
+        startDate: {
+            type: DataTypes.DATE,
+            allowNull: true
+        },
+        notes: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     });
 
@@ -80,9 +108,33 @@ const getDatabase = (username) => {
             allowNull: false,
             unique: true
         },
+        totalAmount: {
+            type: DataTypes.FLOAT,
+            allowNull: true
+        },
+        remainingAmount: {
+            type: DataTypes.FLOAT,
+            allowNull: true
+        },
         balance: {
             type: DataTypes.FLOAT,
             allowNull: false
+        },
+        interestRate: {
+            type: DataTypes.FLOAT,
+            allowNull: true
+        },
+        minimumPayment: {
+            type: DataTypes.FLOAT,
+            allowNull: true
+        },
+        dueDate: {
+            type: DataTypes.DATE,
+            allowNull: true
+        },
+        notes: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     });
 

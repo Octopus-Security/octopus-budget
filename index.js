@@ -2,6 +2,8 @@ const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const app = express();
@@ -18,8 +20,13 @@ if (!fs.existsSync(dataDir)) {
 app.set('view engine', 'ejs');
 app.set('views', './views');
 
+// CORS middleware for API routes
+app.use(cors());
+
+// Body parsing middleware
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(session({
+app.use(bodyParser.urlencoded({ extended: true }));
     secret: process.env.SESSION_SECRET || 'change-me-in-production',
     resave: false,
     saveUninitialized: true,
@@ -30,6 +37,29 @@ app.use(session({
 }));
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// JWT Configuration
+const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'change-me-in-production';
+const JWT_EXPIRATION = '7d';
+
+// JWT verification middleware for API routes
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!token) {
+        return res.status(401).json({ success: false, error: 'No token provided' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (error) {
+        console.error('Token verification error:', error);
+        return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+    }
+};
+
 
 const requireLogin = (req, res, next) => {
     if (req.session.user) {
@@ -38,6 +68,364 @@ const requireLogin = (req, res, next) => {
         res.redirect('/login');
     }
 };
+
+// ============================================
+// API ENDPOINTS (Mobile/JWT Authentication)
+// ============================================
+
+// API Authentication Routes
+app.post('/api/auth/register', async (req, res) => {
+    const { username, password } = req.body;
+    
+    try {
+        if (!username || !password) {
+            return res.status(400).json({ success: false, error: 'Username and password required' });
+        }
+        
+        if (password.length < 6) {
+            return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
+        }
+        
+        const existingUser = await User.findOne({ where: { username } });
+        if (existingUser) {
+            return res.status(400).json({ success: false, error: 'Username already exists' });
+        }
+        
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await User.create({ username, password: hashedPassword });
+        
+        // Initialize user database
+        const { sequelize } = getDatabase(username);
+        await sequelize.sync();
+        
+        // Generate JWT token
+        const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: JWT_EXPIRATION });
+        
+        res.status(201).json({ success: true, token, username });
+    } catch (error) {
+        console.error('API registration error:', error);
+        res.status(500).json({ success: false, error: 'Registration failed' });
+    }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    const { username, password } = req.body;
+    
+    try {
+        if (!username || !password) {
+            return res.status(400).json({ success: false, error: 'Username and password required' });
+        }
+        
+        const user = await User.findOne({ where: { username } });
+        
+        if (!user) {
+            return res.status(401).json({ success: false, error: 'Invalid credentials' });
+        }
+        
+        const validPassword = await bcrypt.compare(password, user.password);
+        
+        if (!validPassword) {
+            return res.status(401).json({ success: false, error: 'Invalid credentials' });
+        }
+        
+        // Generate JWT token
+        const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: JWT_EXPIRATION });
+        
+        res.json({ success: true, token, username });
+    } catch (error) {
+        console.error('API login error:', error);
+        res.status(500).json({ success: false, error: 'Login failed' });
+    }
+});
+
+// API Budget Routes - Subscriptions
+app.get('/api/budget/subscriptions', verifyToken, async (req, res) => {
+    try {
+        const { Subscription } = getDatabase(req.user.username);
+        const subscriptions = await Subscription.findAll();
+        res.json({ success: true, data: subscriptions });
+    } catch (error) {
+        console.error('Get subscriptions error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch subscriptions' });
+    }
+});
+
+app.post('/api/budget/subscriptions', verifyToken, async (req, res) => {
+    try {
+        const { name, amount, frequency, startDate, notes } = req.body;
+        
+        if (!name || !amount || !frequency) {
+            return res.status(400).json({ success: false, error: 'Name, amount, and frequency are required' });
+        }
+        
+        const { Subscription } = getDatabase(req.user.username);
+        const subscription = await Subscription.create({ name, amount, frequency, startDate, notes });
+        res.status(201).json({ success: true, data: subscription });
+    } catch (error) {
+        console.error('Create subscription error:', error);
+        res.status(500).json({ success: false, error: 'Failed to create subscription' });
+    }
+});
+
+app.put('/api/budget/subscriptions/:id', verifyToken, async (req, res) => {
+    try {
+        const { Subscription } = getDatabase(req.user.username);
+        const subscription = await Subscription.findByPk(req.params.id);
+        
+        if (!subscription) {
+            return res.status(404).json({ success: false, error: 'Subscription not found' });
+        }
+        
+        const { name, amount, frequency, startDate, notes } = req.body;
+        await subscription.update({ name, amount, frequency, startDate, notes });
+        
+        res.json({ success: true, data: subscription });
+    } catch (error) {
+        console.error('Update subscription error:', error);
+        res.status(500).json({ success: false, error: 'Failed to update subscription' });
+    }
+});
+
+app.delete('/api/budget/subscriptions/:id', verifyToken, async (req, res) => {
+    try {
+        const { Subscription } = getDatabase(req.user.username);
+        const subscription = await Subscription.findByPk(req.params.id);
+        
+        if (!subscription) {
+            return res.status(404).json({ success: false, error: 'Subscription not found' });
+        }
+        
+        await subscription.destroy();
+        res.json({ success: true, message: 'Subscription deleted' });
+    } catch (error) {
+        console.error('Delete subscription error:', error);
+        res.status(500).json({ success: false, error: 'Failed to delete subscription' });
+    }
+});
+
+// API Budget Routes - Accounts
+app.get('/api/budget/accounts', verifyToken, async (req, res) => {
+    try {
+        const { Account } = getDatabase(req.user.username);
+        const accounts = await Account.findAll();
+        res.json({ success: true, data: accounts });
+    } catch (error) {
+        console.error('Get accounts error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch accounts' });
+    }
+});
+
+app.post('/api/budget/accounts', verifyToken, async (req, res) => {
+    try {
+        const { name, balance, accountType, notes } = req.body;
+        
+        if (!name || balance === undefined) {
+            return res.status(400).json({ success: false, error: 'Name and balance are required' });
+        }
+        
+        const { Account } = getDatabase(req.user.username);
+        const account = await Account.create({ name, balance, accountType, notes });
+        res.status(201).json({ success: true, data: account });
+    } catch (error) {
+        console.error('Create account error:', error);
+        res.status(500).json({ success: false, error: 'Failed to create account' });
+    }
+});
+
+app.put('/api/budget/accounts/:id', verifyToken, async (req, res) => {
+    try {
+        const { Account } = getDatabase(req.user.username);
+        const account = await Account.findByPk(req.params.id);
+        
+        if (!account) {
+            return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+        
+        const { name, balance, accountType, notes } = req.body;
+        await account.update({ name, balance, accountType, notes });
+        
+        res.json({ success: true, data: account });
+    } catch (error) {
+        console.error('Update account error:', error);
+        res.status(500).json({ success: false, error: 'Failed to update account' });
+    }
+});
+
+app.delete('/api/budget/accounts/:id', verifyToken, async (req, res) => {
+    try {
+        const { Account } = getDatabase(req.user.username);
+        const account = await Account.findByPk(req.params.id);
+        
+        if (!account) {
+            return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+        
+        await account.destroy();
+        res.json({ success: true, message: 'Account deleted' });
+    } catch (error) {
+        console.error('Delete account error:', error);
+        res.status(500).json({ success: false, error: 'Failed to delete account' });
+    }
+});
+
+// API Budget Routes - Income
+app.get('/api/budget/income', verifyToken, async (req, res) => {
+    try {
+        const { Income } = getDatabase(req.user.username);
+        const income = await Income.findAll();
+        res.json({ success: true, data: income });
+    } catch (error) {
+        console.error('Get income error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch income' });
+    }
+});
+
+app.post('/api/budget/income', verifyToken, async (req, res) => {
+    try {
+        const { source, amount, frequency, startDate, notes } = req.body;
+        
+        if (!amount || !frequency) {
+            return res.status(400).json({ success: false, error: 'Amount and frequency are required' });
+        }
+        
+        const { Income } = getDatabase(req.user.username);
+        const income = await Income.create({ source, amount, frequency, startDate, notes });
+        res.status(201).json({ success: true, data: income });
+    } catch (error) {
+        console.error('Create income error:', error);
+        res.status(500).json({ success: false, error: 'Failed to create income' });
+    }
+});
+
+app.put('/api/budget/income/:id', verifyToken, async (req, res) => {
+    try {
+        const { Income } = getDatabase(req.user.username);
+        const income = await Income.findByPk(req.params.id);
+        
+        if (!income) {
+            return res.status(404).json({ success: false, error: 'Income not found' });
+        }
+        
+        const { source, amount, frequency, startDate, notes } = req.body;
+        await income.update({ source, amount, frequency, startDate, notes });
+        
+        res.json({ success: true, data: income });
+    } catch (error) {
+        console.error('Update income error:', error);
+        res.status(500).json({ success: false, error: 'Failed to update income' });
+    }
+});
+
+app.delete('/api/budget/income/:id', verifyToken, async (req, res) => {
+    try {
+        const { Income } = getDatabase(req.user.username);
+        const income = await Income.findByPk(req.params.id);
+        
+        if (!income) {
+            return res.status(404).json({ success: false, error: 'Income not found' });
+        }
+        
+        await income.destroy();
+        res.json({ success: true, message: 'Income deleted' });
+    } catch (error) {
+        console.error('Delete income error:', error);
+        res.status(500).json({ success: false, error: 'Failed to delete income' });
+    }
+});
+
+// API Budget Routes - Debts
+app.get('/api/budget/debts', verifyToken, async (req, res) => {
+    try {
+        const { Debt } = getDatabase(req.user.username);
+        const debts = await Debt.findAll();
+        res.json({ success: true, data: debts });
+    } catch (error) {
+        console.error('Get debts error:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch debts' });
+    }
+});
+
+app.post('/api/budget/debts', verifyToken, async (req, res) => {
+    try {
+        const { name, totalAmount, remainingAmount, interestRate, minimumPayment, dueDate, notes } = req.body;
+        
+        if (!name) {
+            return res.status(400).json({ success: false, error: 'Name is required' });
+        }
+        
+        // Calculate balance from remainingAmount or totalAmount
+        const balance = remainingAmount || totalAmount || 0;
+        
+        const { Debt } = getDatabase(req.user.username);
+        const debt = await Debt.create({ 
+            name, 
+            totalAmount, 
+            remainingAmount, 
+            balance,
+            interestRate, 
+            minimumPayment, 
+            dueDate, 
+            notes 
+        });
+        res.status(201).json({ success: true, data: debt });
+    } catch (error) {
+        console.error('Create debt error:', error);
+        res.status(500).json({ success: false, error: 'Failed to create debt' });
+    }
+});
+
+app.put('/api/budget/debts/:id', verifyToken, async (req, res) => {
+    try {
+        const { Debt } = getDatabase(req.user.username);
+        const debt = await Debt.findByPk(req.params.id);
+        
+        if (!debt) {
+            return res.status(404).json({ success: false, error: 'Debt not found' });
+        }
+        
+        const { name, totalAmount, remainingAmount, interestRate, minimumPayment, dueDate, notes } = req.body;
+        
+        // Calculate balance from remainingAmount if provided
+        const balance = remainingAmount !== undefined ? remainingAmount : debt.balance;
+        
+        await debt.update({ 
+            name, 
+            totalAmount, 
+            remainingAmount, 
+            balance,
+            interestRate, 
+            minimumPayment, 
+            dueDate, 
+            notes 
+        });
+        
+        res.json({ success: true, data: debt });
+    } catch (error) {
+        console.error('Update debt error:', error);
+        res.status(500).json({ success: false, error: 'Failed to update debt' });
+    }
+});
+
+app.delete('/api/budget/debts/:id', verifyToken, async (req, res) => {
+    try {
+        const { Debt } = getDatabase(req.user.username);
+        const debt = await Debt.findByPk(req.params.id);
+        
+        if (!debt) {
+            return res.status(404).json({ success: false, error: 'Debt not found' });
+        }
+        
+        await debt.destroy();
+        res.json({ success: true, message: 'Debt deleted' });
+    } catch (error) {
+        console.error('Delete debt error:', error);
+        res.status(500).json({ success: false, error: 'Failed to delete debt' });
+    }
+});
+
+// ============================================
+// WEB UI ROUTES (Session-based Authentication)
+// ============================================
 
 app.get('/login', (req, res) => {
     res.render('login', { title: 'Login', error: null, mode: 'login' });
