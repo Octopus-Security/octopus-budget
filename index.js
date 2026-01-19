@@ -1,6 +1,5 @@
 const express = require('express');
 const session = require('express-session');
-const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
@@ -26,7 +25,6 @@ app.use(cors());
 // Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(bodyParser.urlencoded({ extended: true }));
 app.use(session({
     secret: process.env.SESSION_SECRET || 'change-me-in-production',
     resave: false,
@@ -354,7 +352,7 @@ app.post('/api/budget/debts', verifyToken, async (req, res) => {
         }
         
         // Calculate balance from remainingAmount or totalAmount
-        const balance = remainingAmount || totalAmount || 0;
+        const balance = remainingAmount !== undefined ? remainingAmount : (totalAmount || 0);
         
         const { Debt } = getDatabase(req.user.username);
         const debt = await Debt.create({ 
