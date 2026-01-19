@@ -3,4 +3,5 @@ npm-debug.log
 .env
 data/
 *.db
+*.sqlite
 package-lock.json
