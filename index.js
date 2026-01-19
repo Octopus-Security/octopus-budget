@@ -19,6 +19,7 @@ if (!fs.existsSync(dataDir)) {
 app.set('view engine', 'ejs');
 app.set('views', './views');
 
+app.use(express.json()); // Add JSON body parsing for API
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json()); // Add JSON body parser for API routes
 app.use(session({
@@ -61,87 +62,9 @@ const requireLogin = (req, res, next) => {
     }
 };
 
-// API Authentication Routes
-app.post('/api/auth/register', async (req, res) => {
-    const { username, password } = req.body;
-    
-    try {
-        if (!username || !password) {
-            return res.status(400).json({ error: 'Username and password are required' });
-        }
-        
-        if (password.length < 6) {
-            return res.status(400).json({ error: 'Password must be at least 6 characters' });
-        }
-        
-        const existingUser = await User.findOne({ where: { username } });
-        if (existingUser) {
-            return res.status(400).json({ error: 'Username already exists' });
-        }
-        
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await User.create({ username, password: hashedPassword });
-        
-        // Initialize user database
-        const { sequelize } = getDatabase(username);
-        await sequelize.sync();
-        
-        // Generate JWT token (30 days expiry)
-        const jwtSecret = process.env.JWT_SECRET || 'default-jwt-secret-change-me';
-        const token = jwt.sign({ username }, jwtSecret, { expiresIn: '30d' });
-        
-        res.status(201).json({ 
-            token, 
-            user: { username } 
-        });
-    } catch (error) {
-        console.error('API Registration error:', error);
-        res.status(500).json({ error: 'Registration failed' });
-    }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-    const { username, password } = req.body;
-    
-    try {
-        if (!username || !password) {
-            return res.status(400).json({ error: 'Username and password are required' });
-        }
-        
-        const user = await User.findOne({ where: { username } });
-        
-        if (!user) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-        
-        const validPassword = await bcrypt.compare(password, user.password);
-        
-        if (!validPassword) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-        
-        // Generate JWT token (30 days expiry)
-        const jwtSecret = process.env.JWT_SECRET || 'default-jwt-secret-change-me';
-        const token = jwt.sign({ username }, jwtSecret, { expiresIn: '30d' });
-        
-        res.json({ 
-            token, 
-            user: { username } 
-        });
-    } catch (error) {
-        console.error('API Login error:', error);
-        res.status(500).json({ error: 'Login failed' });
-    }
-});
-
-app.get('/api/auth/me', authenticateJWT, async (req, res) => {
-    try {
-        res.json({ user: { username: req.user.username } });
-    } catch (error) {
-        console.error('API auth/me error:', error);
-        res.status(500).json({ error: 'Failed to get user information' });
-    }
-});
+// Mount API routes
+const apiRouter = require('./api');
+app.use('/api', apiRouter);
 
 app.get('/login', (req, res) => {
     res.render('login', { title: 'Login', error: null, mode: 'login' });
