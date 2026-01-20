@@ -45,8 +45,7 @@ const authenticateJWT = async (req, res, next) => {
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
     
     try {
-        const jwtSecret = process.env.JWT_SECRET || 'default-jwt-secret-change-me';
-        const decoded = jwt.verify(token, jwtSecret);
+        const decoded = jwt.verify(token, JWT_SECRET);
         req.user = { username: decoded.username };
         next();
     } catch (error) {
