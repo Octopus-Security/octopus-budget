@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 const app = express();
 const port = process.env.PORT || 3000;
 const getDatabase = require('./database');
@@ -69,22 +70,46 @@ app.get('/login', (req, res) => {
 
 
 app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    
+    const { username, password, captchaToken } = req.body;
     console.log('Login attempt for username:', username);
-    
+
+    // Enforce CAPTCHA
+    if (!captchaToken) {
+        return res.render('login', { title: 'Login', error: 'CAPTCHA is required', mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
+    }
+
+    // Verify CAPTCHA with Google
+    try {
+        const verifyResponse = await axios.post(
+            'https://www.google.com/recaptcha/api/siteverify',
+            null,
+            {
+                params: {
+                    secret: process.env.RECAPTCHA_SECRET_KEY,
+                    response: captchaToken
+                }
+            }
+        );
+        if (!verifyResponse.data.success) {
+            return res.render('login', { title: 'Login', error: 'CAPTCHA verification failed', mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
+        }
+    } catch (err) {
+        console.error('CAPTCHA verification error:', err);
+        return res.render('login', { title: 'Login', error: 'CAPTCHA verification error', mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
+    }
+
     try {
         console.log('Looking up user...');
         const user = await User.findOne({ where: { username } });
-        
+
         if (!user) {
             console.log('User not found');
             return res.render('login', { title: 'Login', error: 'User not found', mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
         }
-        
+
         console.log('User found, comparing password...');
         const validPassword = await bcrypt.compare(password, user.password);
-        
+
         if (validPassword) {
             console.log('Password valid, syncing database...');
             req.session.user = { username };
