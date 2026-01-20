@@ -16,14 +16,48 @@ const authLimiter = rateLimit({
     message: { success: false, error: 'Too many requests, please try again later.' }
 });
 
-// Generate JWT token
-const generateToken = (username) => {
-    return jwt.sign({ username }, JWT_SECRET, { expiresIn: '7d' });
-};
+// POST /api/auth/login
+// In-memory failed login tracker (replace with Redis or DB for production)
+const failedLogins = {};
+const LOCKOUT_THRESHOLD = 5;
+const LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes
 
-// POST /api/auth/register
-router.post('/register', authLimiter, async (req, res) => {
-    const { username, password } = req.body;
+const axios = require('axios');
+const RECAPTCHA_SECRET_KEY = process.env.RECAPTCHA_SECRET_KEY;
+
+router.post('/login', authLimiter, async (req, res) => {
+    const { username, password, captchaToken } = req.body;
+    const now = Date.now();
+
+    // Always require CAPTCHA
+    if (!captchaToken) {
+        return res.status(403).json({ success: false, error: 'CAPTCHA required', captchaRequired: true });
+    }
+
+    // Verify captchaToken with Google reCAPTCHA API
+    try {
+        const verifyResponse = await axios.post(
+            'https://www.google.com/recaptcha/api/siteverify',
+            null,
+            {
+                params: {
+                    secret: RECAPTCHA_SECRET_KEY,
+                    response: captchaToken
+                }
+            }
+        );
+        if (!verifyResponse.data.success) {
+            return res.status(403).json({ success: false, error: 'CAPTCHA verification failed', captchaRequired: true });
+        }
+    } catch (err) {
+        console.error('CAPTCHA verification error:', err);
+        return res.status(500).json({ success: false, error: 'CAPTCHA verification error', captchaRequired: true });
+    }
+
+    // Check lockout (optional, can keep for extra security)
+    if (failedLogins[username] && failedLogins[username].lockedUntil > now) {
+        return res.status(429).json({ success: false, error: 'Account locked due to too many failed attempts. Please try again later.', captchaRequired: true });
+    }
 
     try {
         // Validate input
@@ -31,43 +65,31 @@ router.post('/register', authLimiter, async (req, res) => {
             return res.status(400).json({ success: false, error: 'Username and password are required' });
         }
 
-        if (password.length < 6) {
-            return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
+        // Find user
+        const user = await User.findOne({ where: { username } });
+        if (!user) {
+            // Track failed attempt
+            failedLogins[username] = failedLogins[username] || { count: 0, lockedUntil: 0 };
+            failedLogins[username].count++;
+            /* Lines 95-100 omitted */
         }
 
-        // Check if user already exists
-        const existingUser = await User.findOne({ where: { username } });
-        if (existingUser) {
-            return res.status(400).json({ success: false, error: 'Username already exists' });
-        }
+        // Validate password
+        const validPassword = await bcrypt.compare(password, user.password);
+        if (!validPassword) {/* Lines 105-112 omitted */}
 
-        // Create user
-        const hashedPassword = await bcrypt.hash(password, 10);
-        await User.create({ username, password: hashedPassword });
-
-        // Initialize user database
-        const { sequelize } = getDatabase(username);
-        await sequelize.sync();
+        // Reset failed login count on success
+        if (failedLogins[username]) {/* Lines 116-117 omitted */}
 
         // Generate token
         const token = generateToken(username);
 
-        res.status(201).json({ success: true, token, username });
+        res.json({ success: true, token, username });
     } catch (error) {
-        console.error('Registration error:', error);
-        res.status(500).json({ success: false, error: 'Registration failed' });
+        console.error('Login error:', error);
+        res.status(500).json({ success: false, error: 'Login failed' });
     }
 });
-
-// POST /api/auth/login
-// In-memory failed login tracker (replace with Redis or DB for production)
-const failedLogins = {};
-const LOCKOUT_THRESHOLD = 5;
-const LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes
-
-router.post('/login', authLimiter, async (req, res) => {
-    const { username, password, captchaToken } = req.body;
-    const now = Date.now();
 
     // Always require CAPTCHA
     if (!captchaToken) {
