@@ -65,7 +65,9 @@ const requireLogin = (req, res, next) => {
 
 
 app.get('/login', (req, res) => {
-    res.render('login', { title: 'Login', error: null, mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
+    const siteKey = process.env.RECAPTCHA_SITE_KEY;
+    console.log('RECAPTCHA_SITE_KEY for /login page:', siteKey);
+    res.render('login', { title: 'Login', error: null, mode: 'login', siteKey });
 });
 
 
