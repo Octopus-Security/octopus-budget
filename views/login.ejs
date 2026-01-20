@@ -114,7 +114,7 @@
                     <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6">
                 </div>
                 <input type="hidden" id="registerCaptchaToken" name="captchaToken">
-                <div class="g-recaptcha" data-sitekey="YOUR_RECAPTCHA_SITE_KEY" data-callback="onRegisterCaptcha"></div>
+                <div class="g-recaptcha" data-sitekey="<%= siteKey %>" data-callback="onRegisterCaptcha"></div>
                 <button type="submit">Register</button>
             </form>
             <div class="toggle-link">
@@ -131,7 +131,7 @@
                     <input type="password" id="password" name="password" required>
                 </div>
                 <input type="hidden" id="loginCaptchaToken" name="captchaToken">
-                <div class="g-recaptcha" data-sitekey="YOUR_RECAPTCHA_SITE_KEY" data-callback="onLoginCaptcha"></div>
+                <div class="g-recaptcha" data-sitekey="<%= siteKey %>" data-callback="onLoginCaptcha"></div>
                 <button type="submit">Login</button>
             </form>
             <div class="toggle-link">
