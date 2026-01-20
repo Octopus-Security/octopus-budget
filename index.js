@@ -304,13 +304,19 @@ app.post('/income', requireLogin, async (req, res) => {
 
 app.post('/debts', requireLogin, async (req, res) => {
     const { Debt } = getDatabase(req.session.user.username);
-    const { name, balance } = req.body;
+    const { name, amount } = req.body;
+    const parsedAmount = parseFloat(amount);
     const debt = await Debt.findOne({ where: { name } });
     if (debt) {
-        debt.balance = balance;
+        debt.amount = parsedAmount;
+        debt.balance = parsedAmount;
         await debt.save();
     } else {
-        await Debt.create(req.body);
+        await Debt.create({
+            name,
+            amount: parsedAmount,
+            balance: parsedAmount
+        });
     }
     res.redirect('/');
 });
