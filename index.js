@@ -648,16 +648,22 @@ app.get('/api/debts', authenticateJWT, async (req, res) => {
 app.post('/api/debts', authenticateJWT, async (req, res) => {
     try {
         const { name, amount, interest_rate, minimum_payment, due_date, notes } = req.body;
-        
-        if (!name || !amount) {
+
+        if (!name || amount === undefined || amount === null || amount === "") {
             return res.status(400).json({ error: 'Name and amount are required' });
         }
-        
+
+        // Validate amount is a number and > 0
+        const parsedAmount = parseFloat(amount);
+        if (isNaN(parsedAmount) || parsedAmount <= 0) {
+            return res.status(400).json({ error: 'Amount must be a positive number' });
+        }
+
         const { Debt } = getDatabase(req.user.username);
         const debt = await Debt.create({ 
             name, 
-            amount, 
-            balance: amount, // Initialize balance with amount
+            amount: parsedAmount, 
+            balance: parsedAmount, // Initialize balance with amount
             interest_rate, 
             minimum_payment, 
             due_date, 
