@@ -62,9 +62,11 @@ const requireLogin = (req, res, next) => {
     }
 };
 
+
 app.get('/login', (req, res) => {
-    res.render('login', { title: 'Login', error: null, mode: 'login' });
+    res.render('login', { title: 'Login', error: null, mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
 });
+
 
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
@@ -77,7 +79,7 @@ app.post('/login', async (req, res) => {
         
         if (!user) {
             console.log('User not found');
-            return res.render('login', { title: 'Login', error: 'User not found', mode: 'login' });
+            return res.render('login', { title: 'Login', error: 'User not found', mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
         }
         
         console.log('User found, comparing password...');
@@ -92,37 +94,39 @@ app.post('/login', async (req, res) => {
             res.redirect('/');
         } else {
             console.log('Invalid password');
-            res.render('login', { title: 'Login', error: 'Invalid password', mode: 'login' });
+            res.render('login', { title: 'Login', error: 'Invalid password', mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
         }
     } catch (error) {
         console.error('Login error:', error);
-        res.render('login', { title: 'Login', error: 'Login failed', mode: 'login' });
+        res.render('login', { title: 'Login', error: 'Login failed', mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
     }
 });
 
+
 app.get('/register', (req, res) => {
-    res.render('login', { title: 'Register', error: null, mode: 'register' });
+    res.render('login', { title: 'Register', error: null, mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
 });
+
 
 app.post('/register', async (req, res) => {
     const { username, password, confirmPassword } = req.body;
     
     try {
         if (!username || !password || !confirmPassword) {
-            return res.render('login', { title: 'Register', error: 'All fields required', mode: 'register' });
+            return res.render('login', { title: 'Register', error: 'All fields required', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
         }
         
         if (password !== confirmPassword) {
-            return res.render('login', { title: 'Register', error: 'Passwords do not match', mode: 'register' });
+            return res.render('login', { title: 'Register', error: 'Passwords do not match', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
         }
         
         if (password.length < 6) {
-            return res.render('login', { title: 'Register', error: 'Password must be at least 6 characters', mode: 'register' });
+            return res.render('login', { title: 'Register', error: 'Password must be at least 6 characters', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
         }
         
         const existingUser = await User.findOne({ where: { username } });
         if (existingUser) {
-            return res.render('login', { title: 'Register', error: 'Username already exists', mode: 'register' });
+            return res.render('login', { title: 'Register', error: 'Username already exists', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
         }
         
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -134,7 +138,7 @@ app.post('/register', async (req, res) => {
         res.redirect('/');
     } catch (error) {
         console.error('Registration error:', error);
-        res.render('login', { title: 'Register', error: 'Registration failed', mode: 'register' });
+        res.render('login', { title: 'Register', error: 'Registration failed', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
     }
 });
 
