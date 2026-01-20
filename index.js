@@ -1,5 +1,6 @@
 const express = require('express');
 const session = require('express-session');
+const SQLiteStore = require('connect-sqlite3')(session);
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -25,10 +26,11 @@ app.set('views', './views');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
+    store: new SQLiteStore({ db: 'sessions.sqlite', dir: './data' }),
     secret: process.env.SESSION_SECRET || 'change-me-in-production',
     resave: false,
-    saveUninitialized: true,
-    cookie: { 
+    saveUninitialized: false,
+    cookie: {
         secure: false, // set to true if using HTTPS
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }

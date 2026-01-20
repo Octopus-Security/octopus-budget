@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   budget-tracker:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: octopus_budget_tracker
     restart: always
     ports:
@@ -13,6 +15,8 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
+      # Ensure SQLite session DB is persisted
+      # The volume already maps ./data, which is used by connect-sqlite3
     networks:
       - budget_network
 
