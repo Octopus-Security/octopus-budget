@@ -69,7 +69,13 @@ router.post('/login', authLimiter, async (req, res) => {
     const { username, password, captchaToken } = req.body;
     const now = Date.now();
 
-    // Check lockout
+    // Always require CAPTCHA
+    if (!captchaToken) {
+        return res.status(403).json({ success: false, error: 'CAPTCHA required', captchaRequired: true });
+    }
+    // TODO: Verify captchaToken with Google reCAPTCHA API
+
+    // Check lockout (optional, can keep for extra security)
     if (failedLogins[username] && failedLogins[username].lockedUntil > now) {
         return res.status(429).json({ success: false, error: 'Account locked due to too many failed attempts. Please try again later.', captchaRequired: true });
     }
@@ -103,15 +109,6 @@ router.post('/login', authLimiter, async (req, res) => {
                 return res.status(429).json({ success: false, error: 'Account locked due to too many failed attempts. Please try again later.', captchaRequired: true });
             }
             return res.status(401).json({ success: false, error: 'Invalid credentials' });
-        }
-
-        // If locked, require CAPTCHA
-        if (failedLogins[username] && failedLogins[username].lockedUntil > now) {
-            // Here you would verify captchaToken with Google reCAPTCHA API
-            if (!captchaToken) {
-                return res.status(403).json({ success: false, error: 'CAPTCHA required', captchaRequired: true });
-            }
-            // TODO: Verify captchaToken with Google reCAPTCHA API
         }
 
         // Reset failed login count on success
