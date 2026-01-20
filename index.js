@@ -72,33 +72,8 @@ app.get('/login', (req, res) => {
 
 
 app.post('/login', async (req, res) => {
-    const { username, password, captchaToken } = req.body;
+    const { username, password } = req.body;
     console.log('Login attempt for username:', username);
-
-    // Enforce CAPTCHA
-    if (!captchaToken) {
-        return res.render('login', { title: 'Login', error: 'CAPTCHA is required', mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
-    }
-
-    // Verify CAPTCHA with Google
-    try {
-        const verifyResponse = await axios.post(
-            'https://www.google.com/recaptcha/api/siteverify',
-            null,
-            {
-                params: {
-                    secret: process.env.RECAPTCHA_SECRET_KEY,
-                    response: captchaToken
-                }
-            }
-        );
-        if (!verifyResponse.data.success) {
-            return res.render('login', { title: 'Login', error: 'CAPTCHA verification failed', mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
-        }
-    } catch (err) {
-        console.error('CAPTCHA verification error:', err);
-        return res.render('login', { title: 'Login', error: 'CAPTCHA verification error', mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
-    }
 
     try {
         console.log('Looking up user...');

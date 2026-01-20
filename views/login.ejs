@@ -130,8 +130,7 @@
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password" required>
                 </div>
-                <input type="hidden" id="loginCaptchaToken" name="captchaToken">
-                <div class="g-recaptcha" data-sitekey="<%= siteKey %>" data-callback="onLoginCaptcha"></div>
+                <!-- CAPTCHA removed -->
                 <button type="submit">Login</button>
             </form>
             <div class="toggle-link">
@@ -141,11 +140,6 @@
     </div>
 </body>
 <script>
-function onLoginCaptcha(token) {
-    document.getElementById('loginCaptchaToken').value = token;
-}
-function onRegisterCaptcha(token) {
-    document.getElementById('registerCaptchaToken').value = token;
-}
+// CAPTCHA removed
 </script>
 </html>
