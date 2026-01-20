@@ -113,8 +113,7 @@
                     <label for="confirmPassword">Confirm Password</label>
                     <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6">
                 </div>
-                <input type="hidden" id="registerCaptchaToken" name="captchaToken">
-                <div class="g-recaptcha" data-sitekey="<%= siteKey %>" data-callback="onRegisterCaptcha"></div>
+                <!-- CAPTCHA removed from registration -->
                 <button type="submit">Register</button>
             </form>
             <div class="toggle-link">
