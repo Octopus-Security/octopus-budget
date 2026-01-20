@@ -237,7 +237,7 @@
                     <% debts.forEach(debt => { %>
                         <tr>
                             <td><%= debt.name %></td>
-                            <td>$<%= debt.balance.toFixed(2) %></td>
+                            <td>$<%= debt.balance !== null && debt.balance !== undefined ? debt.balance.toFixed(2) : '0.00' %></td>
                             <td>
                                 <a href="/debts/delete/<%= debt.id %>" class="delete-btn" onclick="return confirm('Delete this debt?')">Delete</a>
                             </td>
