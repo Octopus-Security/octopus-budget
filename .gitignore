@@ -1,6 +1,7 @@
 node_modules/
 npm-debug.log
 .env
-data/*.db
+data/
 *.db
+*.sqlite
 package-lock.json

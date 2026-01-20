@@ -48,6 +48,14 @@ const getDatabase = (username) => {
         frequency: {
             type: DataTypes.ENUM('daily', 'weekly', 'monthly', 'yearly'),
             allowNull: false
+        },
+        category: {
+            type: DataTypes.STRING,
+            allowNull: true
+        },
+        notes: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     });
 
@@ -60,10 +68,22 @@ const getDatabase = (username) => {
         balance: {
             type: DataTypes.FLOAT,
             allowNull: false
+        },
+        type: {
+            type: DataTypes.STRING,
+            allowNull: true
+        },
+        notes: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     });
 
     const Income = sequelize.define('Income', {
+        source: {
+            type: DataTypes.STRING,
+            allowNull: true
+        },
         amount: {
             type: DataTypes.FLOAT,
             allowNull: false
@@ -71,6 +91,10 @@ const getDatabase = (username) => {
         frequency: {
             type: DataTypes.ENUM('weekly', 'biweekly', 'monthly'),
             allowNull: false
+        },
+        notes: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     });
 
@@ -80,9 +104,29 @@ const getDatabase = (username) => {
             allowNull: false,
             unique: true
         },
-        balance: {
+        amount: {
             type: DataTypes.FLOAT,
             allowNull: false
+        },
+        balance: {
+            type: DataTypes.FLOAT,
+            allowNull: true
+        },
+        interest_rate: {
+            type: DataTypes.FLOAT,
+            allowNull: true
+        },
+        minimum_payment: {
+            type: DataTypes.FLOAT,
+            allowNull: true
+        },
+        due_date: {
+            type: DataTypes.DATE,
+            allowNull: true
+        },
+        notes: {
+            type: DataTypes.TEXT,
+            allowNull: true
         }
     });
 
