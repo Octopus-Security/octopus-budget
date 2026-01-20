@@ -2,12 +2,15 @@ const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 const getDatabase = require('./database');
 const { User, authDb } = require('./database');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-production-jwt-secret';
 
 // Ensure data directory exists
 const dataDir = path.join(__dirname, 'data');
@@ -19,6 +22,7 @@ app.set('view engine', 'ejs');
 app.set('views', './views');
 
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 app.use(session({
     secret: process.env.SESSION_SECRET || 'change-me-in-production',
     resave: false,
@@ -36,6 +40,27 @@ const requireLogin = (req, res, next) => {
         next();
     } else {
         res.redirect('/login');
+    }
+};
+
+// JWT middleware for API routes
+const requireApiAuth = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).json({ success: false, message: 'No token provided' });
+    }
+    
+    const token = authHeader.split(' ')[1]; // Bearer <token>
+    if (!token) {
+        return res.status(401).json({ success: false, message: 'Invalid token format' });
+    }
+    
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (error) {
+        return res.status(401).json({ success: false, message: 'Invalid or expired token' });
     }
 };
 
@@ -119,6 +144,76 @@ app.get('/logout', (req, res) => {
     req.session.destroy(() => {
         res.redirect('/login');
     });
+});
+
+// REST API endpoints for mobile app
+app.post('/api/auth/register', async (req, res) => {
+    const { username, password } = req.body;
+    
+    try {
+        if (!username || !password) {
+            return res.status(400).json({ success: false, message: 'Username and password required' });
+        }
+        
+        if (password.length < 6) {
+            return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+        }
+        
+        const existingUser = await User.findOne({ where: { username } });
+        if (existingUser) {
+            return res.status(400).json({ success: false, message: 'Username already exists' });
+        }
+        
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await User.create({ username, password: hashedPassword });
+        
+        // Initialize user's database
+        const { sequelize } = getDatabase(username);
+        await sequelize.sync();
+        
+        // Generate token
+        const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '7d' });
+        
+        res.status(201).json({ success: true, token, message: 'User registered successfully' });
+    } catch (error) {
+        console.error('API registration error:', error);
+        res.status(500).json({ success: false, message: 'Registration failed' });
+    }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    const { username, password } = req.body;
+    
+    console.log('API login attempt for username:', username);
+    
+    try {
+        const user = await User.findOne({ where: { username } });
+        
+        if (!user) {
+            console.log('User not found');
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+        
+        const validPassword = await bcrypt.compare(password, user.password);
+        
+        if (!validPassword) {
+            console.log('Invalid password');
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+        
+        // Ensure user's database is synced
+        const { sequelize } = getDatabase(username);
+        await sequelize.sync();
+        
+        // Generate token
+        const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '7d' });
+        
+        console.log('Login successful, token generated');
+        res.json({ success: true, token, message: null });
+    } catch (error) {
+        console.error('API login error:', error);
+        res.status(500).json({ success: false, message: 'Login failed' });
+    }
 });
 
 
