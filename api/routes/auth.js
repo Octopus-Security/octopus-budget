@@ -5,7 +5,7 @@ const { JWT_SECRET } = require('../middleware/auth');
 const router = express.Router();
 
 // Auth service URL - centralized authentication
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://octopus-auth:3002';
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'https://auth.octopustechnology.net';
 
 // Proxy login to centralized auth service
 router.post('/login', async (req, res) => {
