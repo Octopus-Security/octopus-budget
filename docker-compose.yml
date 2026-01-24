@@ -15,6 +15,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
+      - JWT_SECRET=${JWT_SECRET:-octopus-shared-secret-change-in-production}
       # Ensure SQLite session DB is persisted
       # The volume already maps ./data, which is used by connect-sqlite3
     networks:
