@@ -12,7 +12,26 @@ const port = process.env.PORT || 3000;
 const getDatabase = require('./database');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'octopus-shared-secret-change-in-production';
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'https://auth.octopustechnology.net';
+const AUTH_INTERNAL_URL = process.env.AUTH_SERVICE_URL || 'http://octopus-auth:3002';
+const AUTH_EXTERNAL_URL = 'https://auth.octopustechnology.net';
+
+// Helper to call auth service with fallback
+async function callAuthService(endpoint, data, headers = {}) {
+    try {
+        const response = await axios.post(`${AUTH_INTERNAL_URL}${endpoint}`, data, {
+            headers: { 'Content-Type': 'application/json', ...headers },
+            timeout: 3000
+        });
+        return response;
+    } catch (internalError) {
+        console.log('Internal auth failed, trying external URL...');
+        const response = await axios.post(`${AUTH_EXTERNAL_URL}${endpoint}`, data, {
+            headers: { 'Content-Type': 'application/json', ...headers },
+            timeout: 5000
+        });
+        return response;
+    }
+}
 
 // Ensure data directory exists
 const dataDir = path.join(__dirname, 'data');
@@ -79,7 +98,7 @@ app.post('/login', async (req, res) => {
 
     try {
         // Proxy to centralized auth service
-        const authResponse = await axios.post(`${AUTH_SERVICE_URL}/api/auth/login`, {
+        const authResponse = await callAuthService('/api/auth/login', {
             username,
             password
         });
@@ -125,7 +144,7 @@ app.post('/register', async (req, res) => {
         }
         
         // Proxy registration to centralized auth service
-        const authResponse = await axios.post(`${AUTH_SERVICE_URL}/api/auth/register`, {
+        const authResponse = await callAuthService('/api/auth/register', {
             username,
             password
         });
@@ -154,7 +173,7 @@ app.get('/logout', (req, res) => {
 // REST API endpoints for mobile app - proxy to auth service
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const authResponse = await axios.post(`${AUTH_SERVICE_URL}/api/auth/register`, req.body);
+        const authResponse = await callAuthService('/api/auth/register', req.body);
         res.status(authResponse.status).json(authResponse.data);
     } catch (error) {
         if (error.response) {
@@ -167,7 +186,7 @@ app.post('/api/auth/register', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
     try {
-        const authResponse = await axios.post(`${AUTH_SERVICE_URL}/api/auth/login`, req.body);
+        const authResponse = await callAuthService('/api/auth/login', req.body);
         res.status(authResponse.status).json(authResponse.data);
     } catch (error) {
         if (error.response) {

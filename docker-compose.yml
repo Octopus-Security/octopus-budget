@@ -19,9 +19,12 @@ services:
       - AUTH_SERVICE_URL=http://octopus-auth:3002
     networks:
       - octopus_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 networks:
   octopus_network:
+    name: octopus_network
     external: true
 
 volumes:
