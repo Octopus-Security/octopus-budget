@@ -4,19 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= title %></title>
+    <link rel="stylesheet" href="/theme.css">
 </head>
 <body>
-    <h1><%= title %></h1>
-    <form action="/subscriptions/edit/<%= subscription.id %>" method="post">
-        <input type="text" name="name" placeholder="Name" value="<%= subscription.name %>" required>
-        <input type="number" step="0.01" name="amount" placeholder="Amount" value="<%= subscription.amount %>" required>
-        <select name="frequency">
-            <option value="daily" <%= subscription.frequency === 'daily' ? 'selected' : '' %>>Daily</option>
-            <option value="weekly" <%= subscription.frequency === 'weekly' ? 'selected' : '' %>>Weekly</option>
-            <option value="monthly" <%= subscription.frequency === 'monthly' ? 'selected' : '' %>>Monthly</option>
-            <option value="yearly" <%= subscription.frequency === 'yearly' ? 'selected' : '' %>>Yearly</option>
-        </select>
-        <button type="submit">Update</button>
-    </form>
+    <nav>
+        <div class="container">
+            <h1>💰 Budget Tracker</h1>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/settings">Settings</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="card" style="max-width: 500px;">
+            <h2><%= title %></h2>
+            <form action="/subscriptions/edit/<%= subscription.id %>" method="post">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Name</label>
+                    <input type="text" name="name" value="<%= subscription.name %>" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Amount</label>
+                    <input type="number" step="0.01" name="amount" value="<%= subscription.amount %>" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Frequency</label>
+                    <select name="frequency">
+                        <option value="daily"   <%= subscription.frequency === 'daily'   ? 'selected' : '' %>>Daily</option>
+                        <option value="weekly"  <%= subscription.frequency === 'weekly'  ? 'selected' : '' %>>Weekly</option>
+                        <option value="monthly" <%= subscription.frequency === 'monthly' ? 'selected' : '' %>>Monthly</option>
+                        <option value="yearly"  <%= subscription.frequency === 'yearly'  ? 'selected' : '' %>>Yearly</option>
+                    </select>
+                </div>
+                <button type="submit">Update Subscription</button>
+            </form>
+        </div>
+    </div>
 </body>
 </html>
