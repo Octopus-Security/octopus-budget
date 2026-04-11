@@ -5,7 +5,7 @@ WORKDIR /usr/src/app
  
 # Copy package files and install dependencies as root
 COPY package*.json ./
-RUN npm install
+RUN npm install --build-from-source=sqlite3
  
 # Copy the rest of the application source code
 COPY . .

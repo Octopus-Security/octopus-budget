@@ -24,7 +24,11 @@ async function callAuthService(endpoint, data, headers = {}) {
         });
         return response;
     } catch (internalError) {
-        console.log('Internal auth failed, trying external URL...');
+        // Only fall back to external if it's a network/connectivity error, not an auth failure
+        if (internalError.response) {
+            throw internalError;
+        }
+        console.log('Internal auth unreachable, trying external URL...');
         const response = await axios.post(`${AUTH_EXTERNAL_URL}${endpoint}`, data, {
             headers: { 'Content-Type': 'application/json', ...headers },
             timeout: 5000
