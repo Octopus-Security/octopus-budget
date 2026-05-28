@@ -1,8 +1,11 @@
-FROM node:18
- 
+FROM node:22
+
+# Patch Debian OS packages (bookworm) before anything else
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
 # Set the working directory
 WORKDIR /usr/src/app
- 
+
 # Copy package files and install dependencies as root
 COPY package*.json ./
 RUN npm install --build-from-source=sqlite3
