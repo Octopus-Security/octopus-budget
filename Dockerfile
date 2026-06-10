@@ -1,26 +1,18 @@
-FROM node:22
+FROM node:22-alpine
 
-# Patch Debian OS packages (bookworm) before anything else
-RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
+RUN apk upgrade --no-cache && apk add --no-cache python3 make g++
 
-# Set the working directory
 WORKDIR /usr/src/app
 
-# Copy package files and install dependencies as root
 COPY package*.json ./
 RUN npm install --build-from-source=sqlite3
- 
-# Copy the rest of the application source code
+
 COPY . .
 
-# Create data directory and change ownership of the entire application directory to the node user
 RUN mkdir -p /usr/src/app/data && chown -R node:node /usr/src/app
- 
-# Switch to the non-root user for security
+
 USER node
- 
-# Expose the port the app runs on
+
 EXPOSE 3000
- 
-# Start the app
+
 CMD [ "node", "index.js" ]
