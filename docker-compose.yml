@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        - GITHUB_TOKEN
+        - NPM_TOKEN
     container_name: octopus_budget_tracker
     restart: always
     ports:

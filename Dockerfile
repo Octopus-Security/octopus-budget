@@ -4,10 +4,10 @@ RUN apk upgrade --no-cache && apk add --no-cache python3 make g++
 
 WORKDIR /usr/src/app
 
-ARG GITHUB_TOKEN
+ARG NPM_TOKEN
 COPY package*.json ./
 RUN echo "@octopus-security:registry=https://npm.pkg.github.com" > .npmrc \
- && echo "//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}" >> .npmrc \
+ && echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .npmrc \
  && npm install --build-from-source=sqlite3 \
  && rm -f .npmrc
 
