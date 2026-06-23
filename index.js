@@ -3,39 +3,14 @@ const session = require('express-session');
 const SQLiteStore = require('connect-sqlite3')(session);
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
 const app = express();
 const port = process.env.PORT || 3000;
 const getDatabase = require('./database');
+const { createAuthMiddleware, AuthClient } = require('@octopus-security/auth-client');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'octopus-shared-secret-change-in-production';
-const AUTH_INTERNAL_URL = process.env.AUTH_SERVICE_URL || 'http://octopus-auth:3002';
-const AUTH_EXTERNAL_URL = 'https://auth.octopustechnology.net';
-
-// Helper to call auth service with fallback
-async function callAuthService(endpoint, data, headers = {}) {
-    try {
-        const response = await axios.post(`${AUTH_INTERNAL_URL}${endpoint}`, data, {
-            headers: { 'Content-Type': 'application/json', ...headers },
-            timeout: 3000
-        });
-        return response;
-    } catch (internalError) {
-        // Only fall back to external if it's a network/connectivity error, not an auth failure
-        if (internalError.response) {
-            throw internalError;
-        }
-        console.log('Internal auth unreachable, trying external URL...');
-        const response = await axios.post(`${AUTH_EXTERNAL_URL}${endpoint}`, data, {
-            headers: { 'Content-Type': 'application/json', ...headers },
-            timeout: 5000
-        });
-        return response;
-    }
-}
+const auth = new AuthClient();
 
 // Ensure data directory exists
 const dataDir = path.join(__dirname, 'data');
@@ -63,24 +38,7 @@ app.use(session({
 }));
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// JWT Authentication Middleware
-const authenticateJWT = async (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Missing or invalid authorization header' });
-    }
-    
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = { username: decoded.username };
-        next();
-    } catch (error) {
-        return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-};
+const authenticateJWT = createAuthMiddleware();
 
 
 const requireLogin = (req, res, next) => {
@@ -104,27 +62,22 @@ app.post('/login', async (req, res) => {
     console.log('Login attempt for username:', username);
 
     try {
-        // Proxy to centralized auth service
-        const authResponse = await callAuthService('/api/auth/login', {
-            username,
-            password
-        });
+        const r = await auth.login(username, password);
 
-        if (authResponse.data.success) {
+        if (r.ok && r.data.success) {
             console.log('Auth successful, syncing database...');
-            req.session.user = { username };
+            req.session.user = { username, token: r.data.token };
             const { sequelize } = getDatabase(username);
             await sequelize.sync();
             console.log('Sync complete, redirecting...');
             res.redirect('/');
         } else {
             console.log('Auth failed');
-            res.render('login', { title: 'Login', error: authResponse.data.error || 'Login failed', mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
+            res.render('login', { title: 'Login', error: r.data.error || 'Login failed', mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
         }
     } catch (error) {
-        console.error('Login error:', error.response?.data || error.message);
-        const errorMsg = error.response?.data?.error || 'Login failed';
-        res.render('login', { title: 'Login', error: errorMsg, mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
+        console.error('Login error:', error.message);
+        res.render('login', { title: 'Login', error: 'Login failed', mode: 'login', siteKey: process.env.RECAPTCHA_SITE_KEY });
     }
 });
 
@@ -150,24 +103,19 @@ app.post('/register', async (req, res) => {
             return res.render('login', { title: 'Register', error: 'Password must be at least 6 characters', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
         }
         
-        // Proxy registration to centralized auth service
-        const authResponse = await callAuthService('/api/auth/register', {
-            username,
-            password
-        });
+        const r = await auth.register(username, password);
 
-        if (authResponse.data.success) {
-            req.session.user = { username };
+        if (r.ok && r.data.success) {
+            req.session.user = { username, token: r.data.token };
             const { sequelize } = getDatabase(username);
             await sequelize.sync();
             res.redirect('/');
         } else {
-            res.render('login', { title: 'Register', error: authResponse.data.error || 'Registration failed', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
+            res.render('login', { title: 'Register', error: r.data.error || 'Registration failed', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
         }
     } catch (error) {
-        console.error('Registration error:', error.response?.data || error.message);
-        const errorMsg = error.response?.data?.error || 'Registration failed';
-        res.render('login', { title: 'Register', error: errorMsg, mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
+        console.error('Registration error:', error.message);
+        res.render('login', { title: 'Register', error: 'Registration failed', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
     }
 });
 
@@ -180,27 +128,19 @@ app.get('/logout', (req, res) => {
 // REST API endpoints for mobile app - proxy to auth service
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const authResponse = await callAuthService('/api/auth/register', req.body);
-        res.status(authResponse.status).json(authResponse.data);
+        const r = await auth.register(req.body.username, req.body.password, req.body.email, req.body.inviteCode);
+        res.status(r.status).json(r.data);
     } catch (error) {
-        if (error.response) {
-            res.status(error.response.status).json(error.response.data);
-        } else {
-            res.status(503).json({ success: false, error: 'Auth service unavailable' });
-        }
+        res.status(503).json({ success: false, error: 'Auth service unavailable' });
     }
 });
 
 app.post('/api/auth/login', async (req, res) => {
     try {
-        const authResponse = await callAuthService('/api/auth/login', req.body);
-        res.status(authResponse.status).json(authResponse.data);
+        const r = await auth.login(req.body.username, req.body.password);
+        res.status(r.status).json(r.data);
     } catch (error) {
-        if (error.response) {
-            res.status(error.response.status).json(error.response.data);
-        } else {
-            res.status(503).json({ success: false, error: 'Auth service unavailable' });
-        }
+        res.status(503).json({ success: false, error: 'Auth service unavailable' });
     }
 });
 

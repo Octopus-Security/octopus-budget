@@ -4,8 +4,9 @@ RUN apk upgrade --no-cache && apk add --no-cache python3 make g++
 
 WORKDIR /usr/src/app
 
-COPY package*.json ./
-RUN npm install --build-from-source=sqlite3
+ARG GITHUB_TOKEN
+COPY package*.json .npmrc ./
+RUN npm install --build-from-source=sqlite3 && rm -f .npmrc
 
 COPY . .
 
