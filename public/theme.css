@@ -84,7 +84,7 @@ nav a:hover { background: #1a1a1a; color: #2ecc71; }
     gap: 15px;
     margin-bottom: 15px;
 }
-.form-group { display: flex; flex-direction: column; }
+.form-group { display: flex; flex-direction: column; margin-bottom: 16px; }
 label { margin-bottom: 5px; color: #999; font-weight: 500; font-size: 0.9rem; }
 
 input, select, textarea {
