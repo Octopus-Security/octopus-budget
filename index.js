@@ -63,7 +63,11 @@ app.post('/login', async (req, res) => {
     const { username, password, totpCode } = req.body;
 
     try {
-        const r = await axios.post(`${AUTH_URL}/api/auth/login`, { username, password, totpCode }, { timeout: 5000 });
+        const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || '';
+        const r = await axios.post(`${AUTH_URL}/api/auth/login`, { username, password, totpCode }, {
+            timeout: 5000,
+            headers: { 'X-Forwarded-For': clientIp },
+        });
         if (r.data.success) {
             req.session.user = { username: r.data.username || username, token: r.data.token };
             const { sequelize } = getDatabase(req.session.user.username);
