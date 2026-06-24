@@ -22,11 +22,12 @@
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required minlength="6">
+                    <input type="password" id="password" name="password" required minlength="12">
+                    <small style="color:#aaa;font-size:0.78rem;">12+ chars, uppercase, lowercase, number, symbol</small>
                 </div>
                 <div class="form-group">
                     <label for="confirmPassword">Confirm Password</label>
-                    <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6">
+                    <input type="password" id="confirmPassword" name="confirmPassword" required minlength="12">
                 </div>
                 <div class="form-group">
                     <label for="inviteCode">Invite Code</label>
@@ -58,6 +59,15 @@
     </div>
 </body>
 <script>
-// CAPTCHA removed
+document.getElementById('registerForm')?.addEventListener('submit', function(e) {
+    const pw = document.getElementById('password').value;
+    const cpw = document.getElementById('confirmPassword').value;
+    if (pw !== cpw) { e.preventDefault(); alert('Passwords do not match.'); return; }
+    if (pw.length < 12) { e.preventDefault(); alert('Password must be at least 12 characters.'); return; }
+    if (!/[A-Z]/.test(pw)) { e.preventDefault(); alert('Password must contain an uppercase letter.'); return; }
+    if (!/[a-z]/.test(pw)) { e.preventDefault(); alert('Password must contain a lowercase letter.'); return; }
+    if (!/[0-9]/.test(pw)) { e.preventDefault(); alert('Password must contain a number.'); return; }
+    if (!/[^A-Za-z0-9]/.test(pw)) { e.preventDefault(); alert('Password must contain a symbol (!@#$% etc.).'); return; }
+});
 </script>
 </html>

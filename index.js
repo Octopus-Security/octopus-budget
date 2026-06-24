@@ -88,22 +88,18 @@ app.get('/register', (req, res) => {
 
 
 app.post('/register', async (req, res) => {
-    const { username, password, confirmPassword } = req.body;
-    
+    const { username, password, confirmPassword, inviteCode } = req.body;
+
     try {
         if (!username || !password || !confirmPassword) {
             return res.render('login', { title: 'Register', error: 'All fields required', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
         }
-        
+
         if (password !== confirmPassword) {
             return res.render('login', { title: 'Register', error: 'Passwords do not match', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
         }
-        
-        if (password.length < 6) {
-            return res.render('login', { title: 'Register', error: 'Password must be at least 6 characters', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
-        }
-        
-        const r = await auth.register(username, password);
+
+        const r = await auth.register(username, password, null, inviteCode);
 
         if (r.ok && r.data.success) {
             req.session.user = { username, token: r.data.token };
