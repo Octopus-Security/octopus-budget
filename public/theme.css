@@ -254,3 +254,39 @@ body.login-page {
 .toggle-link { text-align: center; margin-top: 20px; color: #666; }
 .toggle-link a { color: #2ecc71; font-weight: 600; text-decoration: none; }
 .toggle-link a:hover { color: #5df59a; }
+
+/* ── Mobile / responsive ───────────────────────────────────────── */
+@media (max-width: 640px) {
+    .container { padding: 12px; }
+    nav { padding: 10px 12px; }
+    nav h1 { font-size: 18px; }
+    nav a { padding: 6px 10px; font-size: 0.85rem; }
+
+    /* Tables scroll horizontally instead of overflowing */
+    .card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { min-width: 500px; }
+
+    /* Cards stack nicely */
+    .card { padding: 16px; }
+
+    /* Buttons full-width on mobile */
+    .btn, button[type="submit"] { width: 100%; justify-content: center; }
+
+    /* Login page adjustments */
+    .login-container { padding: 24px 18px; }
+    .login-container h1 { font-size: 22px; margin-bottom: 20px; }
+
+    /* Dashboard stat font */
+    .stat { font-size: 28px; }
+    .summary-card .amount { font-size: 26px; }
+
+    /* Goals */
+    .goal-header { flex-wrap: wrap; gap: 8px; }
+    .goal-actions { flex-wrap: wrap; }
+
+    /* Actions inline */
+    .actions { flex-wrap: wrap; }
+
+    /* Input font size prevents iOS zoom-on-focus */
+    input, select, textarea { font-size: 16px; }
+}
