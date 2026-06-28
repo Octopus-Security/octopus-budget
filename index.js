@@ -1,6 +1,4 @@
 const express = require('express');
-const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const fs = require('fs');
@@ -28,100 +26,84 @@ app.set('views', './views');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(session({
-    store: new SQLiteStore({ db: 'sessions.sqlite', dir: './data' }),
-    secret: process.env.SESSION_SECRET || 'change-me-in-production',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        secure: false, // set to true if using HTTPS
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
-}));
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// ── Stateless SSO auth ────────────────────────────────────────────────────────
+// One central login at auth.octopustechnology.net sets a JWT cookie scoped to the
+// whole domain; verify it against octopus-auth (cached) and expose req.user.
+const SSO_COOKIE     = 'octopus_sso';
+const AUTH_LOGIN_URL = (process.env.AUTH_PUBLIC_URL || 'https://auth.octopustechnology.net') + '/login';
+const _verifyCache = new Map();   // token -> { user, exp }
+const _seededUsers = new Set();   // usernames whose DB has been ensured this run
+
+function parseCookies(req) {
+    const out = {};
+    const header = req.headers.cookie;
+    if (!header) return out;
+    for (const part of header.split(';')) {
+        const i = part.indexOf('=');
+        if (i > -1) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    }
+    return out;
+}
+
+async function verifyToken(token) {
+    const cached = _verifyCache.get(token);
+    if (cached && cached.exp > Date.now()) return cached.user;
+    try {
+        const r = await axios.post(`${AUTH_URL}/api/auth/verify`, {}, {
+            headers: { Authorization: `Bearer ${token}` }, timeout: 5000,
+        });
+        if (r.data && r.data.valid && r.data.user) {
+            _verifyCache.set(token, { user: r.data.user, exp: Date.now() + 5 * 60 * 1000 });
+            return r.data.user;
+        }
+    } catch { /* invalid or auth unreachable → unauthenticated */ }
+    return null;
+}
+
+async function ensureUserDb(username) {
+    if (_seededUsers.has(username)) return;
+    const { sequelize } = getDatabase(username);
+    await sequelize.sync();
+    _seededUsers.add(username);
+}
+
+app.use(async (req, res, next) => {
+    const token = parseCookies(req)[SSO_COOKIE];
+    if (token) {
+        const user = await verifyToken(token);
+        if (user) req.user = { username: user.username, role: user.role, token };
+    }
+    res.locals.user = req.user || null;
+    next();
+});
 
 const authenticateJWT = createAuthMiddleware();
 
 
-const requireLogin = (req, res, next) => {
-    if (req.session.user) {
-        next();
-    } else {
-        res.redirect('/login');
+const requireLogin = async (req, res, next) => {
+    if (!req.user) {
+        const back = encodeURIComponent(`https://${req.get('host')}${req.originalUrl}`);
+        return res.redirect(`${AUTH_LOGIN_URL}?redirect=${back}`);
     }
+    try { await ensureUserDb(req.user.username); }
+    catch (e) { console.error('ensureUserDb failed:', e.message); }
+    next();
 };
 
-
+// Login/register/logout are centralized at auth.octopustechnology.net now.
 app.get('/login', (req, res) => {
-    const siteKey = process.env.RECAPTCHA_SITE_KEY;
-    console.log('RECAPTCHA_SITE_KEY for /login page:', siteKey);
-    res.render('login', { title: 'Login', error: null, mode: 'login', siteKey });
+    const back = encodeURIComponent(`https://${req.get('host')}/`);
+    res.redirect(`${AUTH_LOGIN_URL}?redirect=${back}`);
 });
 
-
-app.post('/login', async (req, res) => {
-    const { username, password, totpCode } = req.body;
-
-    try {
-        const clientIp = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || '';
-        const r = await axios.post(`${AUTH_URL}/api/auth/login`, { username, password, totpCode }, {
-            timeout: 5000,
-            headers: { 'X-Forwarded-For': clientIp },
-        });
-        if (r.data.success) {
-            req.session.user = { username: r.data.username || username, token: r.data.token };
-            const { sequelize } = getDatabase(req.session.user.username);
-            await sequelize.sync();
-            return res.json({ ok: true });
-        }
-        res.status(401).json({ error: 'Credentials or 2FA incorrect' });
-    } catch (err) {
-        if (err.response?.status === 401 || err.response?.status === 403) {
-            return res.status(err.response.status).json({ error: 'Credentials or 2FA incorrect' });
-        }
-        console.error('Login error:', err.message);
-        res.status(503).json({ error: 'Service unavailable' });
-    }
-});
-
-
-app.get('/register', (req, res) => {
-    res.render('login', { title: 'Register', error: null, mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
-});
-
-
-app.post('/register', async (req, res) => {
-    const { username, password, confirmPassword, inviteCode } = req.body;
-
-    try {
-        if (!username || !password || !confirmPassword) {
-            return res.render('login', { title: 'Register', error: 'All fields required', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
-        }
-
-        if (password !== confirmPassword) {
-            return res.render('login', { title: 'Register', error: 'Passwords do not match', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
-        }
-
-        const r = await auth.register(username, password, null, inviteCode);
-
-        if (r.ok && r.data.success) {
-            req.session.user = { username, token: r.data.token };
-            const { sequelize } = getDatabase(username);
-            await sequelize.sync();
-            res.redirect('/');
-        } else {
-            res.render('login', { title: 'Register', error: r.data.error || 'Registration failed', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
-        }
-    } catch (error) {
-        console.error('Registration error:', error.message);
-        res.render('login', { title: 'Register', error: 'Registration failed', mode: 'register', siteKey: process.env.RECAPTCHA_SITE_KEY });
-    }
-});
+app.get('/register', (req, res) => res.redirect(AUTH_LOGIN_URL));
 
 app.get('/logout', (req, res) => {
-    req.session.destroy(() => {
-        res.redirect('/login');
-    });
+    const base = process.env.AUTH_PUBLIC_URL || 'https://auth.octopustechnology.net';
+    const back = encodeURIComponent(`https://${req.get('host')}/`);
+    res.redirect(`${base}/logout?redirect=${back}`);
 });
 
 // REST API endpoints for mobile app - proxy to auth service
@@ -145,7 +127,7 @@ app.post('/api/auth/login', async (req, res) => {
 
 
 app.get('/', requireLogin, async (req, res) => {
-  const { Subscription, Account, Income, Debt } = getDatabase(req.session.user.username);
+  const { Subscription, Account, Income, Debt } = getDatabase(req.user.username);
   const subscriptions = await Subscription.findAll();
   const accounts = await Account.findAll();
   const income = await Income.findAll();
@@ -157,24 +139,24 @@ app.get('/', requireLogin, async (req, res) => {
     accounts,
     income,
     debts,
-    user: req.session.user
+    user: req.user
    });
 });
 
 app.post('/subscriptions', requireLogin, async (req, res) => {
-    const { Subscription } = getDatabase(req.session.user.username);
+    const { Subscription } = getDatabase(req.user.username);
     await Subscription.create(req.body);
     res.redirect('/');
 });
 
 app.get('/subscriptions/edit/:id', requireLogin, async (req, res) => {
-    const { Subscription } = getDatabase(req.session.user.username);
+    const { Subscription } = getDatabase(req.user.username);
     const subscription = await Subscription.findByPk(req.params.id);
     res.render('edit_subscription', { title: 'Edit Subscription', subscription });
 });
 
 app.post('/subscriptions/edit/:id', requireLogin, async (req, res) => {
-    const { Subscription } = getDatabase(req.session.user.username);
+    const { Subscription } = getDatabase(req.user.username);
     const subscription = await Subscription.findByPk(req.params.id);
     subscription.name = req.body.name;
     subscription.amount = req.body.amount;
@@ -184,14 +166,14 @@ app.post('/subscriptions/edit/:id', requireLogin, async (req, res) => {
 });
 
 app.get('/subscriptions/delete/:id', requireLogin, async (req, res) => {
-    const { Subscription } = getDatabase(req.session.user.username);
+    const { Subscription } = getDatabase(req.user.username);
     const subscription = await Subscription.findByPk(req.params.id);
     await subscription.destroy();
     res.redirect('/');
 });
 
 app.post('/accounts', requireLogin, async (req, res) => {
-    const { Account } = getDatabase(req.session.user.username);
+    const { Account } = getDatabase(req.user.username);
     const { name, balance } = req.body;
     const account = await Account.findOne({ where: { name } });
     if (account) {
@@ -204,13 +186,13 @@ app.post('/accounts', requireLogin, async (req, res) => {
 });
 
 app.get('/accounts/delete/:id', requireLogin, async (req, res) => {
-    const { Account } = getDatabase(req.session.user.username);
+    const { Account } = getDatabase(req.user.username);
     await Account.destroy({ where: { id: req.params.id } });
     res.redirect('/');
 });
 
 app.post('/income', requireLogin, async (req, res) => {
-    const { Income } = getDatabase(req.session.user.username);
+    const { Income } = getDatabase(req.user.username);
     // For simplicity, assuming only one income entry
     const income = await Income.findOne();
     if (income) {
@@ -224,7 +206,7 @@ app.post('/income', requireLogin, async (req, res) => {
 });
 
 app.post('/debts', requireLogin, async (req, res) => {
-    const { Debt } = getDatabase(req.session.user.username);
+    const { Debt } = getDatabase(req.user.username);
     const { name, amount } = req.body;
     const parsedAmount = parseFloat(amount);
     const debt = await Debt.findOne({ where: { name } });
@@ -243,110 +225,39 @@ app.post('/debts', requireLogin, async (req, res) => {
 });
 
 app.get('/debts/delete/:id', requireLogin, async (req, res) => {
-    const { Debt } = getDatabase(req.session.user.username);
+    const { Debt } = getDatabase(req.user.username);
     await Debt.destroy({ where: { id: req.params.id } });
     res.redirect('/');
 });
 
 // User settings routes
 app.get('/settings', requireLogin, (req, res) => {
-    res.render('settings', { title: 'Account Settings', user: req.session.user, error: null, success: null });
+    res.render('settings', { title: 'Account Settings', user: req.user, error: null, success: null });
 });
 
 app.post('/settings/change-password', requireLogin, async (req, res) => {
     const { currentPassword, newPassword, confirmPassword } = req.body;
-    
+    const render = (error, success) => res.render('settings', { title: 'Account Settings', user: req.user, error, success });
+    if (newPassword !== confirmPassword) return render('New passwords do not match', null);
     try {
-        const user = await User.findOne({ where: { username: req.session.user.username } });
-        
-        const validPassword = await bcrypt.compare(currentPassword, user.password);
-        if (!validPassword) {
-            return res.render('settings', { 
-                title: 'Account Settings', 
-                user: req.session.user, 
-                error: 'Current password is incorrect', 
-                success: null 
-            });
-        }
-        
-        if (newPassword !== confirmPassword) {
-            return res.render('settings', { 
-                title: 'Account Settings', 
-                user: req.session.user, 
-                error: 'New passwords do not match', 
-                success: null 
-            });
-        }
-        
-        if (newPassword.length < 6) {
-            return res.render('settings', { 
-                title: 'Account Settings', 
-                user: req.session.user, 
-                error: 'Password must be at least 6 characters', 
-                success: null 
-            });
-        }
-        
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-        user.password = hashedPassword;
-        await user.save();
-        
-        res.render('settings', { 
-            title: 'Account Settings', 
-            user: req.session.user, 
-            error: null, 
-            success: 'Password changed successfully' 
-        });
-    } catch (error) {
-        console.error('Password change error:', error);
-        res.render('settings', { 
-            title: 'Account Settings', 
-            user: req.session.user, 
-            error: 'Failed to change password', 
-            success: null 
-        });
+        // Password is managed centrally by octopus-auth.
+        const r = await axios.post(`${AUTH_URL}/api/auth/password`,
+            { oldPassword: currentPassword, newPassword },
+            { headers: { Authorization: `Bearer ${req.user.token}` }, timeout: 5000 });
+        if (r.data && r.data.success) return render(null, 'Password changed successfully');
+        return render(r.data?.error || 'Failed to change password', null);
+    } catch (err) {
+        return render(err.response?.data?.error || 'Failed to change password', null);
     }
 });
 
 app.post('/settings/delete-account', requireLogin, async (req, res) => {
-    const { password } = req.body;
-    const username = req.session.user.username;
-    
-    try {
-        const user = await User.findOne({ where: { username } });
-        
-        const validPassword = await bcrypt.compare(password, user.password);
-        if (!validPassword) {
-            return res.render('settings', { 
-                title: 'Account Settings', 
-                user: req.session.user, 
-                error: 'Incorrect password', 
-                success: null 
-            });
-        }
-        
-        // Delete user database
-        const dbPath = path.join(dataDir, `${username}_database.sqlite`);
-        if (fs.existsSync(dbPath)) {
-            fs.unlinkSync(dbPath);
-        }
-        
-        // Delete user from auth database
-        await user.destroy();
-        
-        // Destroy session and redirect to login
-        req.session.destroy(() => {
-            res.redirect('/login');
-        });
-    } catch (error) {
-        console.error('Account deletion error:', error);
-        res.render('settings', { 
-            title: 'Account Settings', 
-            user: req.session.user, 
-            error: 'Failed to delete account', 
-            success: null 
-        });
-    }
+    // The account lives in octopus-auth (shared across all apps), so per-app
+    // deletion is disabled — it would orphan the auth account.
+    res.render('settings', {
+        title: 'Account Settings', user: req.user,
+        error: 'Account deletion is managed centrally — contact the admin.', success: null,
+    });
 });
 
 // API Subscription Routes
