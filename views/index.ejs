@@ -199,12 +199,34 @@
                     <tr>
                         <th>Name</th>
                         <th>Balance</th>
+                        <th>Credit Limit</th>
+                        <th>Available</th>
                         <th>Actions</th>
                     </tr>
                     <% debts.forEach(debt => { %>
+                        <%
+                            const bal = debt.balance !== null && debt.balance !== undefined ? debt.balance : 0;
+                            const lim = debt.credit_limit;
+                            const avail = lim !== null && lim !== undefined ? lim - bal : null;
+                            const util = lim ? Math.min(100, (bal / lim) * 100) : null;
+                        %>
                         <tr>
                             <td><%= debt.name %></td>
-                            <td>$<%= debt.balance !== null && debt.balance !== undefined ? debt.balance.toFixed(2) : '0.00' %></td>
+                            <td>$<%= bal.toFixed(2) %></td>
+                            <td><%= lim !== null && lim !== undefined ? '$' + lim.toFixed(2) : '—' %></td>
+                            <td>
+                                <% if (avail !== null) { %>
+                                    <span style="color: <%= avail < 0 ? '#e55' : avail < lim * 0.2 ? '#e3b341' : '#3fb950' %>">
+                                        $<%= avail.toFixed(2) %>
+                                    </span>
+                                    <div style="margin-top:4px;background:#222;border-radius:3px;height:5px;width:80px;overflow:hidden;">
+                                        <div style="height:100%;width:<%= util.toFixed(0) %>%;background:<%= util > 80 ? '#e55' : util > 50 ? '#e3b341' : '#3fb950' %>;border-radius:3px;"></div>
+                                    </div>
+                                    <span style="font-size:11px;color:#666;"><%= util.toFixed(0) %>% used</span>
+                                <% } else { %>
+                                    <span style="color:#666;">—</span>
+                                <% } %>
+                            </td>
                             <td>
                                 <a href="/debts/delete/<%= debt.id %>" class="delete-btn" onclick="return confirm('Delete this debt?')">Delete</a>
                             </td>
@@ -222,8 +244,12 @@
                             <input type="text" name="name" placeholder="e.g., Credit Card, Loan, etc." required>
                         </div>
                         <div class="form-group">
-                            <label>Amount</label>
-                            <input type="number" step="0.01" name="amount" required>
+                            <label>Current Balance</label>
+                            <input type="number" step="0.01" name="amount" placeholder="0.00" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Credit Limit <span style="color:#666;font-size:11px;">(optional)</span></label>
+                            <input type="number" step="0.01" name="credit_limit" placeholder="0.00">
                         </div>
                     </div>
                     <button type="submit">Add/Update</button>

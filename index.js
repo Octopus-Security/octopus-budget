@@ -65,7 +65,7 @@ async function verifyToken(token) {
 async function ensureUserDb(username) {
     if (_seededUsers.has(username)) return;
     const { sequelize } = getDatabase(username);
-    await sequelize.sync();
+    await sequelize.sync({ alter: true });
     _seededUsers.add(username);
 }
 
@@ -207,18 +207,21 @@ app.post('/income', requireLogin, async (req, res) => {
 
 app.post('/debts', requireLogin, async (req, res) => {
     const { Debt } = getDatabase(req.user.username);
-    const { name, amount } = req.body;
+    const { name, amount, credit_limit } = req.body;
     const parsedAmount = parseFloat(amount);
+    const parsedLimit = credit_limit !== '' && credit_limit !== undefined ? parseFloat(credit_limit) : null;
     const debt = await Debt.findOne({ where: { name } });
     if (debt) {
         debt.amount = parsedAmount;
         debt.balance = parsedAmount;
+        if (parsedLimit !== null) debt.credit_limit = parsedLimit;
         await debt.save();
     } else {
         await Debt.create({
             name,
             amount: parsedAmount,
-            balance: parsedAmount
+            balance: parsedAmount,
+            credit_limit: parsedLimit,
         });
     }
     res.redirect('/');

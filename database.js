@@ -101,6 +101,10 @@ const getDatabase = (username) => {
             type: DataTypes.DATE,
             allowNull: true
         },
+        credit_limit: {
+            type: DataTypes.FLOAT,
+            allowNull: true
+        },
         notes: {
             type: DataTypes.TEXT,
             allowNull: true
