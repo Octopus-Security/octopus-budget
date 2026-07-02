@@ -9,7 +9,7 @@ Legend: **P1** = do first (core expenditure tracking) · **P2** = high value ·
 
 ---
 
-## P1 — Transactions (the real expenditure spine)
+## ✅ P1 — Transactions (the real expenditure spine) — DONE
 
 **Why:** Today "spending" is only inferred from subscriptions/debts. To actually
 graph expenditure the hub needs a per-transaction log. This is the single most
@@ -52,7 +52,7 @@ this month's spend appears on the dashboard summary and trends on /graphs.
 
 ---
 
-## P1 — Spending by category
+## P1 — Spending by category (next to build)
 
 Depends on Transactions.
 
@@ -134,7 +134,7 @@ label STRING, amount FLOAT, date DATEONLY }`.
 
 ## Snapshot columns cheat-sheet
 Current: `totalDebt, totalAccounts, monthlyIncome, subscriptionTotal, bnplUsed,
-netWorth, transunion, equifax`. Planned additions: `monthlySpend,
-paymentsThisMonth, savings`. Every new headline metric → add a column here +
+netWorth, transunion, equifax, monthlySpend`. Planned additions:
+`paymentsThisMonth, savings`. Every new headline metric → add a column here +
 set it in the `GET /` upsert + add a dataset in `graphs.ejs`. That's the whole
 pattern for "make it graphable over time."

@@ -180,6 +180,17 @@ const getDatabase = (username) => {
         }
     });
 
+    // Per-transaction expense/income log. positive amount = expense, negative = refund/income.
+    const Transaction = sequelize.define('Transaction', {
+        description: { type: DataTypes.STRING,  allowNull: false },
+        amount:      { type: DataTypes.FLOAT,   allowNull: false },
+        category:    { type: DataTypes.STRING,  allowNull: true },
+        account_id:  { type: DataTypes.INTEGER, allowNull: true },
+        provider:    { type: DataTypes.STRING,  allowNull: true },
+        date:        { type: DataTypes.DATEONLY, allowNull: false },
+        notes:       { type: DataTypes.TEXT,    allowNull: true },
+    });
+
     // Current credit score per bureau (transunion | equifax | ...).
     const CreditScore = sequelize.define('CreditScore', {
         bureau: {
@@ -205,7 +216,8 @@ const getDatabase = (username) => {
         bnplUsed:          { type: DataTypes.FLOAT, allowNull: true },
         netWorth:          { type: DataTypes.FLOAT, allowNull: true },
         transunion:        { type: DataTypes.INTEGER, allowNull: true },
-        equifax:           { type: DataTypes.INTEGER, allowNull: true }
+        equifax:           { type: DataTypes.INTEGER, allowNull: true },
+        monthlySpend:      { type: DataTypes.FLOAT,   allowNull: true }
     });
 
     return {
@@ -217,7 +229,8 @@ const getDatabase = (username) => {
         Installment,
         Provider,
         CreditScore,
-        Snapshot
+        Snapshot,
+        Transaction,
     };
 }
 

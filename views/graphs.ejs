@@ -31,6 +31,7 @@
                 <div class="card"><h2>💎 Net Worth</h2><canvas id="netWorthChart" height="200"></canvas></div>
                 <div class="card"><h2>💳 Debt &amp; BNPL Used</h2><canvas id="debtChart" height="200"></canvas></div>
                 <div class="card"><h2>💵 Monthly Income vs Subscriptions</h2><canvas id="cashflowChart" height="200"></canvas></div>
+                <div class="card"><h2>💸 Monthly Spending</h2><canvas id="spendChart" height="200"></canvas></div>
                 <div class="card"><h2>📊 Credit Scores</h2><canvas id="scoreChart" height="200"></canvas></div>
             </div>
         <% } %>
@@ -45,6 +46,7 @@
             monthlyIncome: s.monthlyIncome, subscriptionTotal: s.subscriptionTotal,
             bnplUsed: s.bnplUsed, netWorth: s.netWorth,
             transunion: s.transunion, equifax: s.equifax,
+            monthlySpend: s.monthlySpend,
         }))) %>;
 
         const labels = snaps.map(s => {
@@ -73,6 +75,10 @@
         line('cashflowChart', [
             { label: 'Monthly Income', data: snaps.map(s => s.monthlyIncome), borderColor: '#3fb950', tension: 0.25 },
             { label: 'Subscriptions', data: snaps.map(s => s.subscriptionTotal), borderColor: '#7c89f5', tension: 0.25 },
+        ], { y: money });
+
+        line('spendChart', [
+            { label: 'Monthly Spend', data: snaps.map(s => s.monthlySpend), borderColor: '#ff7878', backgroundColor: 'rgba(255,120,120,0.1)', fill: true, spanGaps: true, tension: 0.25 },
         ], { y: money });
 
         line('scoreChart', [
