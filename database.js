@@ -177,6 +177,10 @@ const getDatabase = (username) => {
             type: DataTypes.BOOLEAN,
             allowNull: false,
             defaultValue: false
+        },
+        icon_url: {
+            type: DataTypes.STRING,
+            allowNull: true
         }
     });
 

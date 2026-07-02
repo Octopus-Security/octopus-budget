@@ -340,15 +340,15 @@
             <!-- Provider allowances: "used" is auto-summed from the plans below -->
             <div style="margin-bottom:20px;">
                 <p style="font-size:12px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Allowances — used vs available</p>
-                <% providers.forEach(p => {
-                    const pn = p.name.toLowerCase();
-                    const emoji = pn === 'affirm' ? '🟢' : pn === 'klarna' ? '🩷' : '💳';
-                %>
+                <% providers.forEach(p => { %>
                 <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1a1a1a;flex-wrap:wrap;">
-                    <div style="min-width:110px;">
-                        <span style="font-weight:600;"><%= emoji %> <%= p.name %></span>
+                    <div style="min-width:110px;display:flex;align-items:center;gap:7px;">
+                        <% if (p.icon_url) { %>
+                            <img src="<%= p.icon_url %>" style="width:20px;height:20px;object-fit:contain;border-radius:3px;vertical-align:middle;" onerror="this.style.display='none'">
+                        <% } %>
+                        <span style="font-weight:600;"><%= p.name %></span>
                         <% if (!p.builtin) { %>
-                            <a href="/providers/delete/<%= p.id %>" style="color:#e55;font-size:11px;margin-left:6px;text-decoration:none;" onclick="return confirm('Remove <%= p.name %>? Plans stay, allowance tracking is removed.')">✕</a>
+                            <a href="/providers/delete/<%= p.id %>" style="color:#e55;font-size:11px;text-decoration:none;" onclick="return confirm('Remove <%= p.name %>? Plans stay, allowance tracking is removed.')">✕</a>
                         <% } %>
                     </div>
                     <% if (p.allowance > 0) { %>
@@ -365,21 +365,26 @@
                     <% } else { %>
                         <span style="flex:1;min-width:170px;font-size:12px;color:#666;">$<%= p.used.toFixed(2) %> in active plans — set an allowance to track usage</span>
                     <% } %>
-                    <form action="/providers" method="post" style="display:flex;gap:6px;align-items:center;margin:0;">
+                    <form action="/providers" method="post" style="display:flex;flex-direction:column;gap:4px;margin:0;align-items:flex-end;">
                         <input type="hidden" name="name" value="<%= p.name %>">
-                        <input type="number" step="0.01" name="allowance" value="<%= p.allowance || '' %>" placeholder="allowance" style="width:110px;padding:6px 8px;font-size:13px;">
-                        <button type="submit" style="padding:6px 12px;font-size:12px;">Set</button>
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <input type="number" step="0.01" name="allowance" value="<%= p.allowance || '' %>" placeholder="allowance" style="width:110px;padding:6px 8px;font-size:13px;">
+                            <button type="submit" style="padding:6px 12px;font-size:12px;">Set</button>
+                        </div>
+                        <input type="url" name="icon_url" value="<%= p.icon_url || '' %>" placeholder="icon URL (optional)" style="width:100%;max-width:236px;padding:4px 8px;font-size:11px;color:#888;background:#0d0d0d;border:1px solid #222;border-radius:4px;">
                     </form>
                 </div>
                 <% }) %>
                 <!-- Add a custom provider -->
                 <form action="/providers" method="post" style="display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap;">
-                    <input type="text" name="name" placeholder="Add other provider (e.g. Sezzle)" style="flex:1;min-width:150px;padding:6px 8px;font-size:13px;">
-                    <input type="number" step="0.01" name="allowance" placeholder="allowance" style="width:110px;padding:6px 8px;font-size:13px;">
+                    <input type="text" name="name" placeholder="Add other provider (e.g. Sezzle)" style="flex:1;min-width:130px;padding:6px 8px;font-size:13px;">
+                    <input type="number" step="0.01" name="allowance" placeholder="allowance" style="width:95px;padding:6px 8px;font-size:13px;">
+                    <input type="url" name="icon_url" placeholder="icon URL" style="width:130px;padding:6px 8px;font-size:13px;">
                     <button type="submit" style="padding:6px 12px;font-size:12px;">+ Add</button>
                 </form>
             </div>
 
+            <% const providerIconMap = {}; providers.forEach(p => { providerIconMap[p.name.toLowerCase()] = p.icon_url; }); %>
             <% if (installments.length > 0) { %>
             <table>
                 <tr>
@@ -401,11 +406,16 @@
                                    : days <= 3  ? `<span style="color:#f0c060">${days}d</span>`
                                    : `${days}d`;
                     const plow = (inst.provider || '').toLowerCase();
-                    const providerEmoji = plow === 'affirm' ? '🟢' : plow === 'klarna' ? '🩷' : '💳';
+                    const pIcon = providerIconMap[plow];
                 %>
                 <tr>
                     <td><%= inst.name %></td>
-                    <td><%= providerEmoji %> <%= inst.provider %></td>
+                    <td style="white-space:nowrap;">
+                        <% if (pIcon) { %>
+                            <img src="<%= pIcon %>" style="width:14px;height:14px;object-fit:contain;border-radius:2px;vertical-align:middle;margin-right:4px;" onerror="this.style.display='none'">
+                        <% } else { %><%= plow === 'affirm' ? '🟢' : plow === 'klarna' ? '🩷' : '💳 ' %><% } %>
+                        <%= inst.provider %>
+                    </td>
                     <td>$<%= inst.payment_amount.toFixed(2) %></td>
                     <td><%= inst.remaining_payments %> left</td>
                     <td>$<%= left.toFixed(2) %></td>
