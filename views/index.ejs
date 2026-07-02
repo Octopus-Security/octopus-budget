@@ -5,7 +5,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= title %></title>
-    <link rel="stylesheet" href="/theme.css">
+    <link rel="stylesheet" href="/theme.css?v=<%= Date.now() %>">
 </head>
 <body>
     <nav>
@@ -21,11 +21,14 @@
     </nav>
 
     <!-- ── Scratchpad panel ─────────────────────────────────────────────── -->
-    <div id="scratchpad" class="scratchpad-panel" aria-hidden="true">
+    <!-- Critical layout is inlined so the panel pins right and stays hidden
+         even if theme.css is stale/cached. JS toggles inline display directly. -->
+    <div id="scratchpad" class="scratchpad-panel" aria-hidden="true"
+         style="display:none; position:fixed; top:0; right:0; width:380px; max-width:100%; height:100%; background:#111; border-left:1px solid #1e1e1e; z-index:100000; box-shadow:-6px 0 32px rgba(0,0,0,0.7); flex-direction:column; overflow:hidden;">
         <div class="scratchpad-header">
             <span>🧮 Scratchpad</span>
             <div class="scratchpad-mode">
-                <span class="mode-label" id="modeLabel">✏️ Type</span>
+                <span class="mode-label">✏️ Type</span>
                 <label class="mode-switch" title="Toggle draw mode">
                     <input type="checkbox" id="drawToggle" onchange="toggleDrawMode(this.checked)">
                     <span class="mode-slider"></span>
@@ -34,10 +37,10 @@
             </div>
             <button class="scratchpad-close" onclick="toggleScratchpad()">✕</button>
         </div>
-        <div id="scratchpadType" class="scratchpad-body">
+        <div id="scratchpadType" class="scratchpad-body" style="flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden;">
             <textarea id="scratchText" placeholder="Type calculations or notes here…&#10;&#10;e.g.&#10;Paycheck: 1200&#10;Rent: -850&#10;CC min: -45&#10;Affirm: -37.50&#10;Remaining: 267.50"></textarea>
         </div>
-        <div id="scratchpadDraw" class="scratchpad-body hidden">
+        <div id="scratchpadDraw" class="scratchpad-body" style="display:none; flex:1; flex-direction:column; min-height:0; overflow:hidden;">
             <canvas id="drawCanvas"></canvas>
             <div class="draw-toolbar">
                 <button onclick="setDrawColor('#2ecc71')" style="background:#2ecc71;width:22px;height:22px;border-radius:50%;border:2px solid #111;padding:0;"></button>
@@ -49,7 +52,8 @@
             </div>
         </div>
     </div>
-    <div id="scratchOverlay" class="scratchpad-overlay" onclick="toggleScratchpad()"></div>
+    <div id="scratchOverlay" class="scratchpad-overlay" onclick="toggleScratchpad()"
+         style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:99999;"></div>
 
     <div class="container">
         <h1 style="margin: 30px 0 20px;">Welcome, <%= user.username %>!</h1>
@@ -410,22 +414,46 @@
 
     <script>
     // ── Scratchpad ──────────────────────────────────────────────────────────────
+    // Show/hide is driven by inline display so it works regardless of theme.css.
     const panel   = document.getElementById('scratchpad');
     const overlay = document.getElementById('scratchOverlay');
     let isOpen = false;
 
+    // Right-side panel on desktop, bottom sheet on phone/tablet.
+    function applyPanelGeometry() {
+        const mobile = window.innerWidth <= 640;
+        if (mobile) {
+            panel.style.width  = '100%';
+            panel.style.height = '78vh';
+            panel.style.top    = 'auto';
+            panel.style.bottom = '0';
+            panel.style.borderLeft = 'none';
+            panel.style.borderTop  = '1px solid #1e1e1e';
+        } else {
+            panel.style.width  = '380px';
+            panel.style.height = '100%';
+            panel.style.top    = '0';
+            panel.style.bottom = 'auto';
+            panel.style.borderLeft = '1px solid #1e1e1e';
+            panel.style.borderTop  = 'none';
+        }
+    }
+
     function toggleScratchpad() {
         isOpen = !isOpen;
-        panel.classList.toggle('open', isOpen);
-        overlay.classList.toggle('active', isOpen);
+        applyPanelGeometry();
+        panel.style.display   = isOpen ? 'flex'  : 'none';
+        overlay.style.display = isOpen ? 'block' : 'none';
         panel.setAttribute('aria-hidden', !isOpen);
         if (isOpen) {
             const ta = document.getElementById('scratchText');
             ta.value = localStorage.getItem('scratchpad') || '';
-            ta.focus();
-            resizeCanvas();
+            if (!drawMode) ta.focus();
+            setTimeout(resizeCanvas, 20);
         }
     }
+
+    window.addEventListener('resize', () => { if (isOpen) { applyPanelGeometry(); resizeCanvas(); } });
 
     document.getElementById('scratchText').addEventListener('input', function() {
         localStorage.setItem('scratchpad', this.value);
@@ -439,23 +467,25 @@
     const ctx = canvas.getContext('2d');
 
     function resizeCanvas() {
-        const parent = canvas.parentElement;
+        if (!drawMode) return;
+        const parent = canvas.parentElement;      // #scratchpadDraw
         const w = parent.clientWidth;
-        const h = parent.clientHeight - 48; // subtract toolbar
-        const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        canvas.width  = w;
+        const h = parent.clientHeight - 48;        // leave room for toolbar
+        let img = null;
+        try { img = ctx.getImageData(0, 0, canvas.width, canvas.height); } catch (e) {}
+        canvas.width  = Math.max(w, 100);
         canvas.height = Math.max(h, 200);
         ctx.fillStyle = '#0d0d0d';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.putImageData(img, 0, 0);
+        if (img) { try { ctx.putImageData(img, 0, 0); } catch (e) {} }
     }
 
     function toggleDrawMode(on) {
         drawMode = on;
-        document.getElementById('scratchpadType').classList.toggle('hidden', on);
-        document.getElementById('scratchpadDraw').classList.toggle('hidden', !on);
-        document.getElementById('modeLabel').textContent = on ? '✏️ Type' : '✏️ Type';
-        if (on) { setTimeout(resizeCanvas, 10); }
+        document.getElementById('scratchpadType').style.display = on ? 'none' : 'flex';
+        document.getElementById('scratchpadDraw').style.display = on ? 'flex' : 'none';
+        if (on) setTimeout(resizeCanvas, 20);
+        else document.getElementById('scratchText').focus();
     }
 
     function setDrawColor(c) { drawColor = c; }
