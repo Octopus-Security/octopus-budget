@@ -126,10 +126,22 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 
-// Ensure the built-in BNPL providers (Affirm, Klarna) always exist.
+const BUILTIN_ICONS = {
+  Affirm: 'https://www.google.com/s2/favicons?sz=32&domain=affirm.com',
+  Klarna: 'https://www.google.com/s2/favicons?sz=32&domain=klarna.com',
+};
+
+// Ensure the built-in BNPL providers (Affirm, Klarna) always exist and have icons.
 async function ensureProviders(Provider) {
   for (const name of ['Affirm', 'Klarna']) {
-    await Provider.findOrCreate({ where: { name }, defaults: { name, allowance: 0, builtin: true } });
+    const [p, created] = await Provider.findOrCreate({
+      where: { name },
+      defaults: { name, allowance: 0, builtin: true, icon_url: BUILTIN_ICONS[name] }
+    });
+    if (!created && !p.icon_url) {
+      p.icon_url = BUILTIN_ICONS[name];
+      await p.save();
+    }
   }
 }
 
@@ -181,7 +193,7 @@ app.get('/', requireLogin, async (req, res) => {
     const used = usedByProvider[p.name.toLowerCase()] || 0;
     const allowance = p.allowance || 0;
     return {
-      id: p.id, name: p.name, allowance, builtin: p.builtin, used,
+      id: p.id, name: p.name, allowance, builtin: p.builtin, used, icon_url: p.icon_url || null,
       available: allowance > 0 ? allowance - used : null,
       pct: allowance > 0 ? Math.min(100, (used / allowance) * 100) : null,
     };
@@ -384,8 +396,10 @@ app.post('/providers', requireLogin, async (req, res) => {
     const name = (req.body.name || '').trim();
     if (!name) return res.redirect('/');
     const allowance = req.body.allowance !== '' && req.body.allowance !== undefined ? parseFloat(req.body.allowance) : 0;
-    const [provider] = await Provider.findOrCreate({ where: { name }, defaults: { name, allowance, builtin: false } });
+    const icon_url = (req.body.icon_url || '').trim() || null;
+    const [provider] = await Provider.findOrCreate({ where: { name }, defaults: { name, allowance, builtin: false, icon_url } });
     provider.allowance = isNaN(allowance) ? 0 : allowance;
+    if (icon_url) provider.icon_url = icon_url;
     await provider.save();
     res.redirect('/');
 });
