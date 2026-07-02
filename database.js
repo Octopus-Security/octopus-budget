@@ -159,13 +159,65 @@ const getDatabase = (username) => {
         }
     });
 
+    // BNPL provider (Affirm / Klarna / custom) with a credit allowance.
+    // "Used" is derived at render time from the sum of that provider's
+    // installment plans — not stored here.
+    const Provider = sequelize.define('Provider', {
+        name: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            unique: true
+        },
+        allowance: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+            defaultValue: 0
+        },
+        builtin: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false
+        }
+    });
+
+    // Current credit score per bureau (transunion | equifax | ...).
+    const CreditScore = sequelize.define('CreditScore', {
+        bureau: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            unique: true
+        },
+        score: {
+            type: DataTypes.INTEGER,
+            allowNull: true
+        }
+    });
+
+    // Daily rollup of every headline metric, so trends can be graphed over
+    // time. One row per calendar day (upserted). This is the growth spine —
+    // new metrics get new columns; history accumulates automatically.
+    const Snapshot = sequelize.define('Snapshot', {
+        date:              { type: DataTypes.DATEONLY, allowNull: false, unique: true },
+        totalDebt:         { type: DataTypes.FLOAT, allowNull: true },
+        totalAccounts:     { type: DataTypes.FLOAT, allowNull: true },
+        monthlyIncome:     { type: DataTypes.FLOAT, allowNull: true },
+        subscriptionTotal: { type: DataTypes.FLOAT, allowNull: true },
+        bnplUsed:          { type: DataTypes.FLOAT, allowNull: true },
+        netWorth:          { type: DataTypes.FLOAT, allowNull: true },
+        transunion:        { type: DataTypes.INTEGER, allowNull: true },
+        equifax:           { type: DataTypes.INTEGER, allowNull: true }
+    });
+
     return {
         sequelize,
         Subscription,
         Account,
         Income,
         Debt,
-        Installment
+        Installment,
+        Provider,
+        CreditScore,
+        Snapshot
     };
 }
 
