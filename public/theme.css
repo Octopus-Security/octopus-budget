@@ -271,29 +271,34 @@ body.login-page {
 .scratchpad-toggle:hover { background: #252510; border-color: #f0c060; transform: none; }
 
 .scratchpad-panel {
+    display: none;
     position: fixed;
-    top: 0; right: 0;
-    width: 360px;
-    height: 100vh;
+    top: 0;
+    right: 0;
+    width: 380px;
+    height: 100%;
+    max-height: 100vh;
     background: #111;
     border-left: 1px solid #1e1e1e;
-    display: flex;
     flex-direction: column;
-    z-index: 1000;
-    transform: translateX(100%);
-    transition: transform 0.25s ease;
-    box-shadow: -4px 0 24px rgba(0,0,0,0.6);
+    z-index: 10000;
+    box-shadow: -6px 0 32px rgba(0,0,0,0.7);
+    overflow: hidden;
 }
-.scratchpad-panel.open { transform: translateX(0); }
+.scratchpad-panel.open {
+    display: flex;
+}
 
 .scratchpad-overlay {
     display: none;
     position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.4);
-    z-index: 999;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
 }
 .scratchpad-overlay.active { display: block; }
+
+.hidden { display: none !important; }
 
 .scratchpad-header {
     display: flex;
@@ -354,8 +359,8 @@ body.login-page {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-height: 0;
 }
-.scratchpad-body.hidden { display: none; }
 
 #scratchText {
     flex: 1;
@@ -446,16 +451,16 @@ body.login-page {
     /* Input font size prevents iOS zoom-on-focus */
     input, select, textarea { font-size: 16px; }
 
-    /* Scratchpad slides up from bottom on mobile */
+    /* Scratchpad covers full width from bottom on mobile */
     .scratchpad-panel {
         width: 100%;
-        height: 70vh;
-        top: auto; bottom: 0; right: 0;
+        height: 75vh;
+        top: auto;
+        bottom: 0;
+        right: 0;
         border-left: none;
         border-top: 1px solid #1e1e1e;
-        transform: translateY(100%);
     }
-    .scratchpad-panel.open { transform: translateY(0); }
 
     /* Upcoming payments stack */
     .upcoming-item { flex-wrap: wrap; gap: 6px; }
