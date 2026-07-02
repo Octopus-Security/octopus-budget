@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/theme.css?v=<%= Date.now() %>">
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <h1>💰 Budget Tracker</h1>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/graphs">📈 Trends</a>
+                <a href="/settings">Settings</a>
+                <a href="/logout">Logout (<%= user.username %>)</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1 style="margin: 30px 0 8px;">📈 Trends</h1>
+        <p style="color:#888;margin-bottom:24px;">A daily snapshot is recorded every time you open the dashboard. The more you visit, the richer these graphs get.</p>
+
+        <% if (snapshots.length === 0) { %>
+            <div class="card"><p class="empty-state">No history yet. Open the dashboard a few times over the coming days and your trends will appear here.</p></div>
+        <% } else { %>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:20px;">
+                <div class="card"><h2>💎 Net Worth</h2><canvas id="netWorthChart" height="200"></canvas></div>
+                <div class="card"><h2>💳 Debt &amp; BNPL Used</h2><canvas id="debtChart" height="200"></canvas></div>
+                <div class="card"><h2>💵 Monthly Income vs Subscriptions</h2><canvas id="cashflowChart" height="200"></canvas></div>
+                <div class="card"><h2>📊 Credit Scores</h2><canvas id="scoreChart" height="200"></canvas></div>
+            </div>
+        <% } %>
+    </div>
+
+    <% if (snapshots.length > 0) { %>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        const snaps = <%- JSON.stringify(snapshots.map(s => ({
+            date: s.date,
+            totalDebt: s.totalDebt, totalAccounts: s.totalAccounts,
+            monthlyIncome: s.monthlyIncome, subscriptionTotal: s.subscriptionTotal,
+            bnplUsed: s.bnplUsed, netWorth: s.netWorth,
+            transunion: s.transunion, equifax: s.equifax,
+        }))) %>;
+
+        const labels = snaps.map(s => {
+            const d = new Date(s.date + 'T00:00:00');
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        });
+
+        Chart.defaults.color = '#999';
+        Chart.defaults.borderColor = '#222';
+        const money = { ticks: { callback: v => '$' + v.toLocaleString() } };
+        const baseOpts = (scales) => ({ responsive: true, plugins: { legend: { labels: { color: '#aaa' } } }, scales });
+
+        function line(id, datasets, scales) {
+            new Chart(document.getElementById(id), { type: 'line', data: { labels, datasets }, options: baseOpts(scales) });
+        }
+
+        line('netWorthChart', [
+            { label: 'Net Worth', data: snaps.map(s => s.netWorth), borderColor: '#2ecc71', backgroundColor: 'rgba(46,204,113,0.12)', fill: true, tension: 0.25 },
+        ], { y: money });
+
+        line('debtChart', [
+            { label: 'Total Debt', data: snaps.map(s => s.totalDebt), borderColor: '#ff7878', tension: 0.25 },
+            { label: 'BNPL Used', data: snaps.map(s => s.bnplUsed), borderColor: '#f0c060', tension: 0.25 },
+        ], { y: money });
+
+        line('cashflowChart', [
+            { label: 'Monthly Income', data: snaps.map(s => s.monthlyIncome), borderColor: '#3fb950', tension: 0.25 },
+            { label: 'Subscriptions', data: snaps.map(s => s.subscriptionTotal), borderColor: '#7c89f5', tension: 0.25 },
+        ], { y: money });
+
+        line('scoreChart', [
+            { label: 'TransUnion', data: snaps.map(s => s.transunion), borderColor: '#2ecc71', spanGaps: true, tension: 0.25 },
+            { label: 'Equifax', data: snaps.map(s => s.equifax), borderColor: '#5db3f5', spanGaps: true, tension: 0.25 },
+        ], { y: { min: 300, max: 850 } });
+    </script>
+    <% } %>
+</body>
+</html>

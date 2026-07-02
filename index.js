@@ -126,15 +126,88 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 
+// Ensure the built-in BNPL providers (Affirm, Klarna) always exist.
+async function ensureProviders(Provider) {
+  for (const name of ['Affirm', 'Klarna']) {
+    await Provider.findOrCreate({ where: { name }, defaults: { name, allowance: 0, builtin: true } });
+  }
+}
+
+// Roll monthly-equivalent amounts for mixed frequencies.
+function monthlyIncomeTotal(income) {
+  let t = 0;
+  for (const i of income) {
+    if (i.frequency === 'weekly') t += i.amount * 4.33;
+    else if (i.frequency === 'biweekly') t += i.amount * 2.166667;
+    else t += i.amount;
+  }
+  return t;
+}
+function subscriptionMonthlyTotal(subscriptions) {
+  let t = 0;
+  for (const s of subscriptions) {
+    let a = s.amount;
+    if (s.frequency === 'daily') a *= 30;
+    else if (s.frequency === 'weekly') a *= 4.33;
+    else if (s.frequency === 'yearly') a /= 12;
+    t += a;
+  }
+  return t;
+}
+
 app.get('/', requireLogin, async (req, res) => {
-  const { Subscription, Account, Income, Debt, Installment } = getDatabase(req.user.username);
-  const [subscriptions, accounts, income, debts, installments] = await Promise.all([
+  const { Subscription, Account, Income, Debt, Installment, Provider, CreditScore, Snapshot } = getDatabase(req.user.username);
+  await ensureProviders(Provider);
+  const [subscriptions, accounts, income, debts, installments, providerRows, scoreRows] = await Promise.all([
     Subscription.findAll(),
     Account.findAll(),
     Income.findAll(),
     Debt.findAll(),
     Installment.findAll({ order: [['next_due_date', 'ASC']] }),
+    Provider.findAll({ order: [['builtin', 'DESC'], ['name', 'ASC']] }),
+    CreditScore.findAll(),
   ]);
+
+  // Derive each provider's "used" = sum of outstanding balances across its
+  // installment plans (remaining payments × payment amount).
+  const usedByProvider = {};
+  for (const inst of installments) {
+    const key = (inst.provider || 'other').toLowerCase();
+    const outstanding = (inst.remaining_payments || 0) * (inst.payment_amount || 0);
+    usedByProvider[key] = (usedByProvider[key] || 0) + outstanding;
+  }
+  const providers = providerRows.map(p => {
+    const used = usedByProvider[p.name.toLowerCase()] || 0;
+    const allowance = p.allowance || 0;
+    return {
+      id: p.id, name: p.name, allowance, builtin: p.builtin, used,
+      available: allowance > 0 ? allowance - used : null,
+      pct: allowance > 0 ? Math.min(100, (used / allowance) * 100) : null,
+    };
+  });
+
+  // Credit scores → simple { transunion, equifax } map
+  const scores = {};
+  for (const s of scoreRows) scores[s.bureau] = s.score;
+
+  // Headline totals (also fed to the daily snapshot)
+  const totalDebt         = debts.reduce((a, d) => a + (d.balance || 0), 0);
+  const totalAccounts     = accounts.reduce((a, c) => a + (c.balance || 0), 0);
+  const monthlyIncome     = monthlyIncomeTotal(income);
+  const subscriptionTotal = subscriptionMonthlyTotal(subscriptions);
+  const bnplUsed          = Object.values(usedByProvider).reduce((a, b) => a + b, 0);
+  const netWorth          = totalAccounts - totalDebt - bnplUsed;
+
+  // Upsert today's snapshot so history accumulates automatically for graphs.
+  try {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const fields = {
+      totalDebt, totalAccounts, monthlyIncome, subscriptionTotal, bnplUsed, netWorth,
+      transunion: scores.transunion ?? null, equifax: scores.equifax ?? null,
+    };
+    const [snap, created] = await Snapshot.findOrCreate({ where: { date: todayStr }, defaults: { date: todayStr, ...fields } });
+    if (!created) { Object.assign(snap, fields); await snap.save(); }
+  } catch (e) { console.error('snapshot upsert failed:', e.message); }
 
   // Build upcoming payments list (next 60 days)
   const today = new Date();
@@ -169,6 +242,8 @@ app.get('/', requireLogin, async (req, res) => {
     income,
     debts,
     installments,
+    providers,
+    scores,
     upcoming,
     user: req.user,
   });
@@ -270,13 +345,60 @@ app.get('/debts/delete/:id', requireLogin, async (req, res) => {
     res.redirect('/');
 });
 
+// ── Credit scores (TransUnion / Equifax) ─────────────────────────────────────
+app.post('/credit-scores', requireLogin, async (req, res) => {
+    const { CreditScore } = getDatabase(req.user.username);
+    for (const bureau of ['transunion', 'equifax']) {
+        const raw = req.body[bureau];
+        if (raw === undefined || raw === '') continue;
+        const score = parseInt(raw);
+        if (isNaN(score)) continue;
+        const [row] = await CreditScore.findOrCreate({ where: { bureau }, defaults: { bureau, score } });
+        row.score = score;
+        await row.save();
+    }
+    res.redirect('/');
+});
+
+// ── Graphs / history ─────────────────────────────────────────────────────────
+app.get('/graphs', requireLogin, async (req, res) => {
+    const { Snapshot } = getDatabase(req.user.username);
+    const snapshots = await Snapshot.findAll({ order: [['date', 'ASC']] });
+    res.render('graphs', { title: 'Trends', user: req.user, snapshots });
+});
+
+// ── BNPL Providers (Affirm / Klarna / custom) ────────────────────────────────
+// Set or update a provider's allowance; also creates custom providers.
+app.post('/providers', requireLogin, async (req, res) => {
+    const { Provider } = getDatabase(req.user.username);
+    const name = (req.body.name || '').trim();
+    if (!name) return res.redirect('/');
+    const allowance = req.body.allowance !== '' && req.body.allowance !== undefined ? parseFloat(req.body.allowance) : 0;
+    const [provider] = await Provider.findOrCreate({ where: { name }, defaults: { name, allowance, builtin: false } });
+    provider.allowance = isNaN(allowance) ? 0 : allowance;
+    await provider.save();
+    res.redirect('/');
+});
+
+app.get('/providers/delete/:id', requireLogin, async (req, res) => {
+    const { Provider } = getDatabase(req.user.username);
+    const provider = await Provider.findByPk(req.params.id);
+    if (provider && !provider.builtin) await provider.destroy();
+    res.redirect('/');
+});
+
 // ── Installments (Affirm / Klarna / BNPL) ────────────────────────────────────
 app.post('/installments', requireLogin, async (req, res) => {
-    const { Installment } = getDatabase(req.user.username);
-    const { name, provider, total_amount, payment_amount, next_due_date, remaining_payments, frequency, notes } = req.body;
+    const { Installment, Provider } = getDatabase(req.user.username);
+    let { name, provider, provider_other, total_amount, payment_amount, next_due_date, remaining_payments, frequency, notes } = req.body;
+    // "Add other" flow: use the typed provider name and remember it as a provider
+    if (provider === '__other__') {
+        provider = (provider_other || '').trim() || 'Other';
+        await Provider.findOrCreate({ where: { name: provider }, defaults: { name: provider, allowance: 0, builtin: false } });
+    }
     await Installment.create({
         name,
-        provider: provider || 'other',
+        provider: provider || 'Other',
         total_amount: parseFloat(total_amount),
         payment_amount: parseFloat(payment_amount),
         next_due_date,

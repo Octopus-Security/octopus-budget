@@ -13,6 +13,7 @@
             <h1>💰 Budget Tracker</h1>
             <div class="nav-links">
                 <a href="/">Dashboard</a>
+                <a href="/graphs">📈 Trends</a>
                 <a href="/settings">Settings</a>
                 <button class="scratchpad-toggle" onclick="toggleScratchpad()" title="Calculator / Scratchpad">🧮 Scratchpad</button>
                 <a href="/logout">Logout (<%= user.username %>)</a>
@@ -330,6 +331,50 @@
             <!-- ── Installments (Affirm / Klarna / BNPL) — grouped with Debts ── -->
             <div class="card">
                 <h2>🛍 Installment Plans <span style="font-size:0.8rem;color:#555;font-weight:400;">Affirm · Klarna · BNPL</span></h2>
+
+            <!-- Provider allowances: "used" is auto-summed from the plans below -->
+            <div style="margin-bottom:20px;">
+                <p style="font-size:12px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Allowances — used vs available</p>
+                <% providers.forEach(p => {
+                    const pn = p.name.toLowerCase();
+                    const emoji = pn === 'affirm' ? '🟢' : pn === 'klarna' ? '🩷' : '💳';
+                %>
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1a1a1a;flex-wrap:wrap;">
+                    <div style="min-width:110px;">
+                        <span style="font-weight:600;"><%= emoji %> <%= p.name %></span>
+                        <% if (!p.builtin) { %>
+                            <a href="/providers/delete/<%= p.id %>" style="color:#e55;font-size:11px;margin-left:6px;text-decoration:none;" onclick="return confirm('Remove <%= p.name %>? Plans stay, allowance tracking is removed.')">✕</a>
+                        <% } %>
+                    </div>
+                    <% if (p.allowance > 0) { %>
+                        <div style="flex:1;min-width:170px;">
+                            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+                                <span style="color:#ff7878;">$<%= p.used.toFixed(2) %> used</span>
+                                <span style="color:#3fb950;">$<%= p.available.toFixed(2) %> left</span>
+                            </div>
+                            <div style="background:#222;border-radius:3px;height:6px;overflow:hidden;">
+                                <div style="height:100%;width:<%= p.pct.toFixed(0) %>%;background:<%= p.pct > 80 ? '#e55' : p.pct > 50 ? '#e3b341' : '#3fb950' %>;"></div>
+                            </div>
+                            <span style="font-size:11px;color:#666;"><%= p.pct.toFixed(0) %>% of $<%= p.allowance.toFixed(2) %> allowance</span>
+                        </div>
+                    <% } else { %>
+                        <span style="flex:1;min-width:170px;font-size:12px;color:#666;">$<%= p.used.toFixed(2) %> in active plans — set an allowance to track usage</span>
+                    <% } %>
+                    <form action="/providers" method="post" style="display:flex;gap:6px;align-items:center;margin:0;">
+                        <input type="hidden" name="name" value="<%= p.name %>">
+                        <input type="number" step="0.01" name="allowance" value="<%= p.allowance || '' %>" placeholder="allowance" style="width:110px;padding:6px 8px;font-size:13px;">
+                        <button type="submit" style="padding:6px 12px;font-size:12px;">Set</button>
+                    </form>
+                </div>
+                <% }) %>
+                <!-- Add a custom provider -->
+                <form action="/providers" method="post" style="display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+                    <input type="text" name="name" placeholder="Add other provider (e.g. Sezzle)" style="flex:1;min-width:150px;padding:6px 8px;font-size:13px;">
+                    <input type="number" step="0.01" name="allowance" placeholder="allowance" style="width:110px;padding:6px 8px;font-size:13px;">
+                    <button type="submit" style="padding:6px 12px;font-size:12px;">+ Add</button>
+                </form>
+            </div>
+
             <% if (installments.length > 0) { %>
             <table>
                 <tr>
@@ -350,7 +395,8 @@
                                    : days < 0   ? `<span style="color:#ff7878">${Math.abs(days)}d overdue</span>`
                                    : days <= 3  ? `<span style="color:#f0c060">${days}d</span>`
                                    : `${days}d`;
-                    const providerEmoji = inst.provider === 'affirm' ? '🟢' : inst.provider === 'klarna' ? '🩷' : '💳';
+                    const plow = (inst.provider || '').toLowerCase();
+                    const providerEmoji = plow === 'affirm' ? '🟢' : plow === 'klarna' ? '🩷' : '💳';
                 %>
                 <tr>
                     <td><%= inst.name %></td>
@@ -378,11 +424,13 @@
                     </div>
                     <div class="form-group">
                         <label>Provider</label>
-                        <select name="provider">
-                            <option value="affirm">Affirm</option>
-                            <option value="klarna">Klarna</option>
-                            <option value="other">Other</option>
+                        <select name="provider" id="providerSelect" onchange="toggleProviderOther(this.value)">
+                            <% providers.forEach(p => { %>
+                            <option value="<%= p.name %>"><%= p.name %></option>
+                            <% }) %>
+                            <option value="__other__">➕ Add other…</option>
                         </select>
+                        <input type="text" name="provider_other" id="providerOther" placeholder="New provider name" style="display:none;margin-top:6px;">
                     </div>
                     <div class="form-group">
                         <label>Total Amount</label>
@@ -412,10 +460,48 @@
             </form>
             </div><!-- /installments card -->
             </div><!-- /debts + installments group -->
+
+            <!-- Credit Scores -->
+            <% const scoreColor = (s) => !s ? '#666' : s >= 740 ? '#3fb950' : s >= 670 ? '#e3b341' : s >= 580 ? '#f0a020' : '#ff7878'; %>
+            <div class="card" style="order:5">
+                <h2>📊 Credit Scores</h2>
+                <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px;">
+                    <div style="flex:1;min-width:110px;text-align:center;">
+                        <div style="font-size:12px;color:#888;text-transform:uppercase;letter-spacing:0.05em;">TransUnion</div>
+                        <div style="font-size:34px;font-weight:bold;color:<%= scoreColor(scores.transunion) %>;"><%= scores.transunion || '—' %></div>
+                    </div>
+                    <div style="flex:1;min-width:110px;text-align:center;">
+                        <div style="font-size:12px;color:#888;text-transform:uppercase;letter-spacing:0.05em;">Equifax</div>
+                        <div style="font-size:34px;font-weight:bold;color:<%= scoreColor(scores.equifax) %>;"><%= scores.equifax || '—' %></div>
+                    </div>
+                </div>
+                <form action="/credit-scores" method="post">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>TransUnion</label>
+                            <input type="number" min="300" max="850" name="transunion" value="<%= scores.transunion || '' %>" placeholder="300–850">
+                        </div>
+                        <div class="form-group">
+                            <label>Equifax</label>
+                            <input type="number" min="300" max="850" name="equifax" value="<%= scores.equifax || '' %>" placeholder="300–850">
+                        </div>
+                    </div>
+                    <button type="submit">Update Scores</button>
+                </form>
+            </div>
         </div><!-- /dashboard grid -->
     </div><!-- /container -->
 
     <script>
+    // ── Installment provider "Add other" toggle ─────────────────────────────────
+    function toggleProviderOther(val) {
+        const other = document.getElementById('providerOther');
+        if (!other) return;
+        const show = val === '__other__';
+        other.style.display = show ? 'block' : 'none';
+        other.required = show;
+    }
+
     // ── Scratchpad ──────────────────────────────────────────────────────────────
     // Non-modal side panel: driven by inline display so it works regardless of
     // theme.css. The app stays fully visible and clickable while it's open.
