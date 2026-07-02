@@ -156,9 +156,9 @@ function subscriptionMonthlyTotal(subscriptions) {
 }
 
 app.get('/', requireLogin, async (req, res) => {
-  const { Subscription, Account, Income, Debt, Installment, Provider, CreditScore, Snapshot } = getDatabase(req.user.username);
+  const { Subscription, Account, Income, Debt, Installment, Provider, CreditScore, Snapshot, Transaction } = getDatabase(req.user.username);
   await ensureProviders(Provider);
-  const [subscriptions, accounts, income, debts, installments, providerRows, scoreRows] = await Promise.all([
+  const [subscriptions, accounts, income, debts, installments, providerRows, scoreRows, transactions] = await Promise.all([
     Subscription.findAll(),
     Account.findAll(),
     Income.findAll(),
@@ -166,6 +166,7 @@ app.get('/', requireLogin, async (req, res) => {
     Installment.findAll({ order: [['next_due_date', 'ASC']] }),
     Provider.findAll({ order: [['builtin', 'DESC'], ['name', 'ASC']] }),
     CreditScore.findAll(),
+    Transaction.findAll({ order: [['date', 'DESC']], limit: 200 }),
   ]);
 
   // Derive each provider's "used" = sum of outstanding balances across its
@@ -198,12 +199,19 @@ app.get('/', requireLogin, async (req, res) => {
   const bnplUsed          = Object.values(usedByProvider).reduce((a, b) => a + b, 0);
   const netWorth          = totalAccounts - totalDebt - bnplUsed;
 
+  // Sum positive-amount transactions in the current calendar month.
+  const nowStr = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const monthlySpend = transactions
+    .filter(t => t.date && t.date.startsWith(nowStr) && t.amount > 0)
+    .reduce((sum, t) => sum + t.amount, 0);
+
   // Upsert today's snapshot so history accumulates automatically for graphs.
   try {
     const todayStr = new Date().toISOString().slice(0, 10);
     const fields = {
       totalDebt, totalAccounts, monthlyIncome, subscriptionTotal, bnplUsed, netWorth,
       transunion: scores.transunion ?? null, equifax: scores.equifax ?? null,
+      monthlySpend,
     };
     const [snap, created] = await Snapshot.findOrCreate({ where: { date: todayStr }, defaults: { date: todayStr, ...fields } });
     if (!created) { Object.assign(snap, fields); await snap.save(); }
@@ -245,6 +253,8 @@ app.get('/', requireLogin, async (req, res) => {
     providers,
     scores,
     upcoming,
+    transactions,
+    monthlySpend,
     user: req.user,
   });
 });
@@ -431,6 +441,29 @@ app.get('/installments/paid/:id', requireLogin, async (req, res) => {
 app.get('/installments/delete/:id', requireLogin, async (req, res) => {
     const { Installment } = getDatabase(req.user.username);
     await Installment.destroy({ where: { id: req.params.id } });
+    res.redirect('/');
+});
+
+// ── Transactions ─────────────────────────────────────────────────────────────
+app.post('/transactions', requireLogin, async (req, res) => {
+    const { Transaction } = getDatabase(req.user.username);
+    const { description, amount, category, account_id, provider, date, notes } = req.body;
+    const today = new Date().toISOString().slice(0, 10);
+    await Transaction.create({
+        description,
+        amount: parseFloat(amount),
+        category: category || null,
+        account_id: account_id ? parseInt(account_id) : null,
+        provider: provider || null,
+        date: date || today,
+        notes: notes || null,
+    });
+    res.redirect('/');
+});
+
+app.get('/transactions/delete/:id', requireLogin, async (req, res) => {
+    const { Transaction } = getDatabase(req.user.username);
+    await Transaction.destroy({ where: { id: req.params.id } });
     res.redirect('/');
 });
 
