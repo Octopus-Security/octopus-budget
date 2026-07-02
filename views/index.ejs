@@ -125,8 +125,7 @@
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 20px;">
             <!-- Subscriptions -->
-            <!-- Subscriptions -->
-            <div class="card">
+            <div class="card" style="order:1">
                 <h2>📺 Subscriptions</h2>
                 <% if (subscriptions.length > 0) { %>
                 <table>
@@ -177,7 +176,7 @@
             </div>
 
             <!-- Accounts -->
-            <div class="card">
+            <div class="card" style="order:3">
                 <h2>🏦 Accounts</h2>
                 <% if (accounts.length > 0) { %>
                 <table>
@@ -216,7 +215,7 @@
             </div>
 
             <!-- Income -->
-            <div class="card">
+            <div class="card" style="order:4">
                 <h2>💵 Income</h2>
                 <% if (income.length > 0) { %>
                 <table>
@@ -254,7 +253,8 @@
                 </form>
             </div>
 
-            <!-- Debts -->
+            <!-- Debts + Installments grouped into one column -->
+            <div style="order:2; display:flex; flex-direction:column; gap:20px; min-width:0;">
             <div class="card">
                 <h2>💳 Debts</h2>
                 <% if (debts.length > 0) { %>
@@ -326,11 +326,10 @@
                     <button type="submit">Add/Update</button>
                 </form>
             </div>
-        </div>
 
-        <!-- ── Installments (Affirm / Klarna / BNPL) ──────────────────── -->
-        <div class="card">
-            <h2>🛍 Installment Plans <span style="font-size:0.8rem;color:#555;font-weight:400;">Affirm · Klarna · BNPL</span></h2>
+            <!-- ── Installments (Affirm / Klarna / BNPL) — grouped with Debts ── -->
+            <div class="card">
+                <h2>🛍 Installment Plans <span style="font-size:0.8rem;color:#555;font-weight:400;">Affirm · Klarna · BNPL</span></h2>
             <% if (installments.length > 0) { %>
             <table>
                 <tr>
@@ -411,8 +410,10 @@
                 </div>
                 <button type="submit">Add Plan</button>
             </form>
-        </div>
-    </div>
+            </div><!-- /installments card -->
+            </div><!-- /debts + installments group -->
+        </div><!-- /dashboard grid -->
+    </div><!-- /container -->
 
     <script>
     // ── Scratchpad ──────────────────────────────────────────────────────────────
