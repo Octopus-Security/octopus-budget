@@ -255,6 +255,162 @@ body.login-page {
 .toggle-link a { color: #2ecc71; font-weight: 600; text-decoration: none; }
 .toggle-link a:hover { color: #5df59a; }
 
+/* ── Scratchpad panel ──────────────────────────────────────────── */
+.scratchpad-toggle {
+    background: #1a1a10;
+    color: #f0c060;
+    border: 1px solid #4a3a10;
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    width: auto;
+}
+.scratchpad-toggle:hover { background: #252510; border-color: #f0c060; transform: none; }
+
+.scratchpad-panel {
+    position: fixed;
+    top: 0; right: 0;
+    width: 360px;
+    height: 100vh;
+    background: #111;
+    border-left: 1px solid #1e1e1e;
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.6);
+}
+.scratchpad-panel.open { transform: translateX(0); }
+
+.scratchpad-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 999;
+}
+.scratchpad-overlay.active { display: block; }
+
+.scratchpad-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #1e1e1e;
+    background: #141414;
+    font-weight: 600;
+    color: #e8e8e8;
+    flex-shrink: 0;
+}
+.scratchpad-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1;
+    width: auto;
+}
+.scratchpad-close:hover { color: #aaa; background: #1e1e1e; transform: none; }
+
+.scratchpad-mode {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+.mode-label { font-size: 11px; color: #666; }
+
+.mode-switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+.mode-switch input { opacity: 0; width: 0; height: 0; }
+.mode-slider {
+    position: absolute; inset: 0;
+    background: #252525;
+    border-radius: 18px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.mode-slider::before {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    left: 3px; top: 3px;
+    background: #666;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+.mode-switch input:checked + .mode-slider { background: #162d1e; }
+.mode-switch input:checked + .mode-slider::before { background: #2ecc71; transform: translateX(16px); }
+
+.scratchpad-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.scratchpad-body.hidden { display: none; }
+
+#scratchText {
+    flex: 1;
+    border: none;
+    border-radius: 0;
+    background: #0d0d0d;
+    color: #d4d4d4;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 16px;
+    resize: none;
+    height: 100%;
+}
+#scratchText:focus { border-color: transparent; outline: none; }
+
+#drawCanvas { flex: 1; display: block; cursor: crosshair; touch-action: none; }
+
+.draw-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #141414;
+    border-top: 1px solid #1e1e1e;
+    flex-shrink: 0;
+}
+.draw-toolbar button { width: auto; padding: 0; transform: none; }
+.draw-toolbar button:hover { transform: scale(1.15); }
+
+/* ── Upcoming payments ─────────────────────────────────────────── */
+.upcoming-card { margin-bottom: 20px; }
+.upcoming-list { display: flex; flex-direction: column; gap: 8px; }
+.upcoming-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #141414;
+    border-radius: 8px;
+    border-left: 3px solid #252525;
+}
+.upcoming-item.soon   { border-left-color: #f0c060; }
+.upcoming-item.urgent { border-left-color: #ff7878; }
+
+.upcoming-info { display: flex; flex-direction: column; gap: 2px; }
+.upcoming-name { font-size: 14px; color: #d4d4d4; font-weight: 500; }
+.upcoming-date { font-size: 11px; color: #555; }
+
+.upcoming-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.upcoming-amount { font-size: 14px; color: #2ecc71; font-weight: 600; }
+.upcoming-days { font-size: 11px; color: #555; }
+.upcoming-days.soon   { color: #f0c060; }
+.upcoming-days.urgent { color: #ff7878; font-weight: 600; }
+
 /* ── Mobile / responsive ───────────────────────────────────────── */
 @media (max-width: 640px) {
     .container { padding: 12px; }
@@ -289,4 +445,18 @@ body.login-page {
 
     /* Input font size prevents iOS zoom-on-focus */
     input, select, textarea { font-size: 16px; }
+
+    /* Scratchpad slides up from bottom on mobile */
+    .scratchpad-panel {
+        width: 100%;
+        height: 70vh;
+        top: auto; bottom: 0; right: 0;
+        border-left: none;
+        border-top: 1px solid #1e1e1e;
+        transform: translateY(100%);
+    }
+    .scratchpad-panel.open { transform: translateY(0); }
+
+    /* Upcoming payments stack */
+    .upcoming-item { flex-wrap: wrap; gap: 6px; }
 }

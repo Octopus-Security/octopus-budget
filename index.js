@@ -127,11 +127,40 @@ app.post('/api/auth/login', async (req, res) => {
 
 
 app.get('/', requireLogin, async (req, res) => {
-  const { Subscription, Account, Income, Debt } = getDatabase(req.user.username);
-  const subscriptions = await Subscription.findAll();
-  const accounts = await Account.findAll();
-  const income = await Income.findAll();
-  const debts = await Debt.findAll();
+  const { Subscription, Account, Income, Debt, Installment } = getDatabase(req.user.username);
+  const [subscriptions, accounts, income, debts, installments] = await Promise.all([
+    Subscription.findAll(),
+    Account.findAll(),
+    Income.findAll(),
+    Debt.findAll(),
+    Installment.findAll({ order: [['next_due_date', 'ASC']] }),
+  ]);
+
+  // Build upcoming payments list (next 60 days)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const horizon = new Date(today); horizon.setDate(horizon.getDate() + 60);
+  const upcoming = [];
+
+  for (const debt of debts) {
+    if (!debt.due_day) continue;
+    const d = new Date(today.getFullYear(), today.getMonth(), debt.due_day);
+    if (d < today) d.setMonth(d.getMonth() + 1);
+    if (d <= horizon) {
+      const daysAway = Math.round((d - today) / 86400000);
+      upcoming.push({ label: debt.name, amount: debt.minimum_payment || null, date: d, daysAway, type: 'debt' });
+    }
+  }
+
+  for (const inst of installments) {
+    if (!inst.next_due_date) continue;
+    const d = new Date(inst.next_due_date + 'T00:00:00');
+    if (d > horizon) continue;
+    const daysAway = Math.round((d - today) / 86400000);
+    upcoming.push({ label: `${inst.name} (${inst.provider})`, amount: inst.payment_amount, date: d, daysAway, type: 'installment', remaining: inst.remaining_payments });
+  }
+
+  upcoming.sort((a, b) => a.date - b.date);
 
   res.render('index', {
     title: 'Budget Tracker',
@@ -139,8 +168,10 @@ app.get('/', requireLogin, async (req, res) => {
     accounts,
     income,
     debts,
-    user: req.user
-   });
+    installments,
+    upcoming,
+    user: req.user,
+  });
 });
 
 app.post('/subscriptions', requireLogin, async (req, res) => {
@@ -207,14 +238,18 @@ app.post('/income', requireLogin, async (req, res) => {
 
 app.post('/debts', requireLogin, async (req, res) => {
     const { Debt } = getDatabase(req.user.username);
-    const { name, amount, credit_limit } = req.body;
+    const { name, amount, credit_limit, minimum_payment, due_day } = req.body;
     const parsedAmount = parseFloat(amount);
     const parsedLimit = credit_limit !== '' && credit_limit !== undefined ? parseFloat(credit_limit) : null;
+    const parsedMin   = minimum_payment !== '' && minimum_payment !== undefined ? parseFloat(minimum_payment) : null;
+    const parsedDay   = due_day !== '' && due_day !== undefined ? parseInt(due_day) : null;
     const debt = await Debt.findOne({ where: { name } });
     if (debt) {
         debt.amount = parsedAmount;
         debt.balance = parsedAmount;
         if (parsedLimit !== null) debt.credit_limit = parsedLimit;
+        if (parsedMin   !== null) debt.minimum_payment = parsedMin;
+        if (parsedDay   !== null) debt.due_day = parsedDay;
         await debt.save();
     } else {
         await Debt.create({
@@ -222,6 +257,8 @@ app.post('/debts', requireLogin, async (req, res) => {
             amount: parsedAmount,
             balance: parsedAmount,
             credit_limit: parsedLimit,
+            minimum_payment: parsedMin,
+            due_day: parsedDay,
         });
     }
     res.redirect('/');
@@ -230,6 +267,48 @@ app.post('/debts', requireLogin, async (req, res) => {
 app.get('/debts/delete/:id', requireLogin, async (req, res) => {
     const { Debt } = getDatabase(req.user.username);
     await Debt.destroy({ where: { id: req.params.id } });
+    res.redirect('/');
+});
+
+// ── Installments (Affirm / Klarna / BNPL) ────────────────────────────────────
+app.post('/installments', requireLogin, async (req, res) => {
+    const { Installment } = getDatabase(req.user.username);
+    const { name, provider, total_amount, payment_amount, next_due_date, remaining_payments, frequency, notes } = req.body;
+    await Installment.create({
+        name,
+        provider: provider || 'other',
+        total_amount: parseFloat(total_amount),
+        payment_amount: parseFloat(payment_amount),
+        next_due_date,
+        remaining_payments: parseInt(remaining_payments),
+        frequency: frequency || 'biweekly',
+        notes: notes || null,
+    });
+    res.redirect('/');
+});
+
+app.get('/installments/paid/:id', requireLogin, async (req, res) => {
+    const { Installment } = getDatabase(req.user.username);
+    const inst = await Installment.findByPk(req.params.id);
+    if (inst) {
+        inst.paid_amount = (inst.paid_amount || 0) + inst.payment_amount;
+        inst.remaining_payments = Math.max(0, inst.remaining_payments - 1);
+        // Advance next_due_date
+        const d = new Date(inst.next_due_date + 'T00:00:00');
+        if (inst.frequency === 'monthly') {
+            d.setMonth(d.getMonth() + 1);
+        } else {
+            d.setDate(d.getDate() + 14);
+        }
+        inst.next_due_date = d.toISOString().slice(0, 10);
+        await inst.save();
+    }
+    res.redirect('/');
+});
+
+app.get('/installments/delete/:id', requireLogin, async (req, res) => {
+    const { Installment } = getDatabase(req.user.username);
+    await Installment.destroy({ where: { id: req.params.id } });
     res.redirect('/');
 });
 

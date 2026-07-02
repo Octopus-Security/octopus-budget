@@ -101,9 +101,57 @@ const getDatabase = (username) => {
             type: DataTypes.DATE,
             allowNull: true
         },
+        // Day of month (1–28) for recurring monthly payment reminder
+        due_day: {
+            type: DataTypes.INTEGER,
+            allowNull: true
+        },
         credit_limit: {
             type: DataTypes.FLOAT,
             allowNull: true
+        },
+        notes: {
+            type: DataTypes.TEXT,
+            allowNull: true
+        }
+    });
+
+    // Affirm / Klarna / BNPL installment plans
+    const Installment = sequelize.define('Installment', {
+        name: {
+            type: DataTypes.STRING,
+            allowNull: false
+        },
+        provider: {
+            type: DataTypes.STRING,  // affirm | klarna | other
+            allowNull: false,
+            defaultValue: 'other'
+        },
+        total_amount: {
+            type: DataTypes.FLOAT,
+            allowNull: false
+        },
+        paid_amount: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+            defaultValue: 0
+        },
+        payment_amount: {
+            type: DataTypes.FLOAT,
+            allowNull: false
+        },
+        next_due_date: {
+            type: DataTypes.DATEONLY,  // YYYY-MM-DD
+            allowNull: false
+        },
+        remaining_payments: {
+            type: DataTypes.INTEGER,
+            allowNull: false
+        },
+        frequency: {
+            type: DataTypes.STRING,  // biweekly | monthly
+            allowNull: false,
+            defaultValue: 'biweekly'
         },
         notes: {
             type: DataTypes.TEXT,
@@ -116,7 +164,8 @@ const getDatabase = (username) => {
         Subscription,
         Account,
         Income,
-        Debt
+        Debt,
+        Installment
     };
 }
 

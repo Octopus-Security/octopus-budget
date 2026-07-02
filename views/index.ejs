@@ -14,10 +14,42 @@
             <div class="nav-links">
                 <a href="/">Dashboard</a>
                 <a href="/settings">Settings</a>
+                <button class="scratchpad-toggle" onclick="toggleScratchpad()" title="Calculator / Scratchpad">🧮 Scratchpad</button>
                 <a href="/logout">Logout (<%= user.username %>)</a>
             </div>
         </div>
     </nav>
+
+    <!-- ── Scratchpad panel ─────────────────────────────────────────────── -->
+    <div id="scratchpad" class="scratchpad-panel" aria-hidden="true">
+        <div class="scratchpad-header">
+            <span>🧮 Scratchpad</span>
+            <div class="scratchpad-mode">
+                <span class="mode-label" id="modeLabel">✏️ Type</span>
+                <label class="mode-switch" title="Toggle draw mode">
+                    <input type="checkbox" id="drawToggle" onchange="toggleDrawMode(this.checked)">
+                    <span class="mode-slider"></span>
+                </label>
+                <span class="mode-label">🖊 Draw</span>
+            </div>
+            <button class="scratchpad-close" onclick="toggleScratchpad()">✕</button>
+        </div>
+        <div id="scratchpadType" class="scratchpad-body">
+            <textarea id="scratchText" placeholder="Type calculations or notes here…&#10;&#10;e.g.&#10;Paycheck: 1200&#10;Rent: -850&#10;CC min: -45&#10;Affirm: -37.50&#10;Remaining: 267.50"></textarea>
+        </div>
+        <div id="scratchpadDraw" class="scratchpad-body hidden">
+            <canvas id="drawCanvas"></canvas>
+            <div class="draw-toolbar">
+                <button onclick="setDrawColor('#2ecc71')" style="background:#2ecc71;width:22px;height:22px;border-radius:50%;border:2px solid #111;padding:0;"></button>
+                <button onclick="setDrawColor('#ffffff')" style="background:#fff;width:22px;height:22px;border-radius:50%;border:2px solid #111;padding:0;"></button>
+                <button onclick="setDrawColor('#ff7878')" style="background:#ff7878;width:22px;height:22px;border-radius:50%;border:2px solid #111;padding:0;"></button>
+                <button onclick="setDrawColor('#f0c060')" style="background:#f0c060;width:22px;height:22px;border-radius:50%;border:2px solid #111;padding:0;"></button>
+                <input type="range" id="brushSize" min="2" max="24" value="4" style="width:70px;">
+                <button onclick="clearCanvas()" style="font-size:11px;padding:4px 8px;">Clear</button>
+            </div>
+        </div>
+    </div>
+    <div id="scratchOverlay" class="scratchpad-overlay" onclick="toggleScratchpad()"></div>
 
     <div class="container">
         <h1 style="margin: 30px 0 20px;">Welcome, <%= user.username %>!</h1>
@@ -59,6 +91,31 @@
                 <div class="stat-label"><%= subscriptions.length %> subscriptions/month</div>
             </div>
         </div>
+
+        <!-- ── Upcoming payments ──────────────────────────────────────── -->
+        <% if (upcoming.length > 0) { %>
+        <div class="card upcoming-card">
+            <h2>📅 Upcoming Payments <span style="font-size:0.8rem;color:#555;font-weight:400;">(next 60 days)</span></h2>
+            <div class="upcoming-list">
+            <% upcoming.forEach(p => {
+                const urgency = p.daysAway <= 3 ? 'urgent' : p.daysAway <= 7 ? 'soon' : '';
+                const dateStr = p.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const dayStr  = p.daysAway === 0 ? 'Today' : p.daysAway === 1 ? 'Tomorrow' : `${p.daysAway} days`;
+            %>
+                <div class="upcoming-item <%= urgency %>">
+                    <div class="upcoming-info">
+                        <span class="upcoming-name"><%= p.label %></span>
+                        <span class="upcoming-date"><%= dateStr %></span>
+                    </div>
+                    <div class="upcoming-right">
+                        <% if (p.amount) { %><span class="upcoming-amount">$<%= p.amount.toFixed(2) %></span><% } %>
+                        <span class="upcoming-days <%= urgency %>"><%= dayStr %></span>
+                    </div>
+                </div>
+            <% }) %>
+            </div>
+        </div>
+        <% } %>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 20px;">
             <!-- Subscriptions -->
@@ -241,7 +298,7 @@
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Debt Name</label>
-                            <input type="text" name="name" placeholder="e.g., Credit Card, Loan, etc." required>
+                            <input type="text" name="name" placeholder="e.g., Chase Visa" required>
                         </div>
                         <div class="form-group">
                             <label>Current Balance</label>
@@ -251,11 +308,175 @@
                             <label>Credit Limit <span style="color:#666;font-size:11px;">(optional)</span></label>
                             <input type="number" step="0.01" name="credit_limit" placeholder="0.00">
                         </div>
+                        <div class="form-group">
+                            <label>Min Payment <span style="color:#666;font-size:11px;">(optional)</span></label>
+                            <input type="number" step="0.01" name="minimum_payment" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Due Day <span style="color:#666;font-size:11px;">day of month 1–28</span></label>
+                            <input type="number" min="1" max="28" name="due_day" placeholder="e.g. 15">
+                        </div>
                     </div>
                     <button type="submit">Add/Update</button>
                 </form>
             </div>
         </div>
+
+        <!-- ── Installments (Affirm / Klarna / BNPL) ──────────────────── -->
+        <div class="card">
+            <h2>🛍 Installment Plans <span style="font-size:0.8rem;color:#555;font-weight:400;">Affirm · Klarna · BNPL</span></h2>
+            <% if (installments.length > 0) { %>
+            <table>
+                <tr>
+                    <th>Name</th>
+                    <th>Provider</th>
+                    <th>Payment</th>
+                    <th>Remaining</th>
+                    <th>Total Left</th>
+                    <th>Next Due</th>
+                    <th>Actions</th>
+                </tr>
+                <% installments.forEach(inst => {
+                    const left = inst.remaining_payments * inst.payment_amount;
+                    const due  = new Date(inst.next_due_date + 'T00:00:00');
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const days = Math.round((due - today) / 86400000);
+                    const dueLabel = days === 0 ? '<span style="color:#ff7878">Today</span>'
+                                   : days < 0   ? `<span style="color:#ff7878">${Math.abs(days)}d overdue</span>`
+                                   : days <= 3  ? `<span style="color:#f0c060">${days}d</span>`
+                                   : `${days}d`;
+                    const providerEmoji = inst.provider === 'affirm' ? '🟢' : inst.provider === 'klarna' ? '🩷' : '💳';
+                %>
+                <tr>
+                    <td><%= inst.name %></td>
+                    <td><%= providerEmoji %> <%= inst.provider %></td>
+                    <td>$<%= inst.payment_amount.toFixed(2) %></td>
+                    <td><%= inst.remaining_payments %> left</td>
+                    <td>$<%= left.toFixed(2) %></td>
+                    <td><%- dueLabel %> <span style="color:#555;font-size:11px;">(<%= due.toLocaleDateString('en-US',{month:'short',day:'numeric'}) %>)</span></td>
+                    <td class="actions">
+                        <a href="/installments/paid/<%= inst.id %>" class="edit-btn" onclick="return confirm('Mark payment made and advance due date?')">✓ Paid</a>
+                        <a href="/installments/delete/<%= inst.id %>" class="delete-btn" onclick="return confirm('Remove this installment plan?')">Delete</a>
+                    </td>
+                </tr>
+                <% }) %>
+            </table>
+            <% } else { %>
+                <p class="empty-state">No installment plans yet</p>
+            <% } %>
+            <h3 style="font-size: 1rem; margin: 20px 0 15px; color: #aaa;">Add Plan</h3>
+            <form action="/installments" method="post">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" name="name" placeholder="e.g., PS5 via Affirm" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Provider</label>
+                        <select name="provider">
+                            <option value="affirm">Affirm</option>
+                            <option value="klarna">Klarna</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Total Amount</label>
+                        <input type="number" step="0.01" name="total_amount" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Amount</label>
+                        <input type="number" step="0.01" name="payment_amount" placeholder="per payment" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Payments Remaining</label>
+                        <input type="number" min="1" name="remaining_payments" placeholder="e.g. 3" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Frequency</label>
+                        <select name="frequency">
+                            <option value="biweekly">Bi-weekly (Pay in 4)</option>
+                            <option value="monthly">Monthly</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Next Due Date</label>
+                        <input type="date" name="next_due_date" required>
+                    </div>
+                </div>
+                <button type="submit">Add Plan</button>
+            </form>
+        </div>
     </div>
+
+    <script>
+    // ── Scratchpad ──────────────────────────────────────────────────────────────
+    const panel   = document.getElementById('scratchpad');
+    const overlay = document.getElementById('scratchOverlay');
+    let isOpen = false;
+
+    function toggleScratchpad() {
+        isOpen = !isOpen;
+        panel.classList.toggle('open', isOpen);
+        overlay.classList.toggle('active', isOpen);
+        panel.setAttribute('aria-hidden', !isOpen);
+        if (isOpen) {
+            const ta = document.getElementById('scratchText');
+            ta.value = localStorage.getItem('scratchpad') || '';
+            ta.focus();
+            resizeCanvas();
+        }
+    }
+
+    document.getElementById('scratchText').addEventListener('input', function() {
+        localStorage.setItem('scratchpad', this.value);
+    });
+
+    // ── Draw mode ───────────────────────────────────────────────────────────────
+    let drawMode = false;
+    let painting = false;
+    let drawColor = '#2ecc71';
+    const canvas = document.getElementById('drawCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+        const parent = canvas.parentElement;
+        const w = parent.clientWidth;
+        const h = parent.clientHeight - 48; // subtract toolbar
+        const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        canvas.width  = w;
+        canvas.height = Math.max(h, 200);
+        ctx.fillStyle = '#0d0d0d';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.putImageData(img, 0, 0);
+    }
+
+    function toggleDrawMode(on) {
+        drawMode = on;
+        document.getElementById('scratchpadType').classList.toggle('hidden', on);
+        document.getElementById('scratchpadDraw').classList.toggle('hidden', !on);
+        document.getElementById('modeLabel').textContent = on ? '✏️ Type' : '✏️ Type';
+        if (on) { setTimeout(resizeCanvas, 10); }
+    }
+
+    function setDrawColor(c) { drawColor = c; }
+    function clearCanvas() {
+        ctx.fillStyle = '#0d0d0d';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function getPos(e) {
+        const r = canvas.getBoundingClientRect();
+        const src = e.touches ? e.touches[0] : e;
+        return { x: src.clientX - r.left, y: src.clientY - r.top };
+    }
+
+    canvas.addEventListener('mousedown',  e => { painting = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); });
+    canvas.addEventListener('mousemove',  e => { if (!painting) return; const p = getPos(e); ctx.lineWidth = document.getElementById('brushSize').value; ctx.strokeStyle = drawColor; ctx.lineCap = 'round'; ctx.lineTo(p.x, p.y); ctx.stroke(); });
+    canvas.addEventListener('mouseup',    () => { painting = false; });
+    canvas.addEventListener('mouseleave', () => { painting = false; });
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); painting = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }, { passive: false });
+    canvas.addEventListener('touchmove',  e => { e.preventDefault(); if (!painting) return; const p = getPos(e); ctx.lineWidth = document.getElementById('brushSize').value; ctx.strokeStyle = drawColor; ctx.lineCap = 'round'; ctx.lineTo(p.x, p.y); ctx.stroke(); }, { passive: false });
+    canvas.addEventListener('touchend',   () => { painting = false; });
+    </script>
 </body>
 </html>
