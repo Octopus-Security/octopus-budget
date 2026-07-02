@@ -39,6 +39,10 @@
         </div>
         <div id="scratchpadType" class="scratchpad-body" style="flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden;">
             <textarea id="scratchText" placeholder="Type calculations or notes here…&#10;&#10;e.g.&#10;Paycheck: 1200&#10;Rent: -850&#10;CC min: -45&#10;Affirm: -37.50&#10;Remaining: 267.50"></textarea>
+            <div class="draw-toolbar">
+                <span style="font-size:11px;color:#666;flex:1;">Saved automatically</span>
+                <button onclick="clearNotes()" style="font-size:11px;padding:4px 8px;">Clear</button>
+            </div>
         </div>
         <div id="scratchpadDraw" class="scratchpad-body" style="display:none; flex:1; flex-direction:column; min-height:0; overflow:hidden;">
             <canvas id="drawCanvas"></canvas>
@@ -52,8 +56,6 @@
             </div>
         </div>
     </div>
-    <div id="scratchOverlay" class="scratchpad-overlay" onclick="toggleScratchpad()"
-         style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:99999;"></div>
 
     <div class="container">
         <h1 style="margin: 30px 0 20px;">Welcome, <%= user.username %>!</h1>
@@ -414,9 +416,9 @@
 
     <script>
     // ── Scratchpad ──────────────────────────────────────────────────────────────
-    // Show/hide is driven by inline display so it works regardless of theme.css.
-    const panel   = document.getElementById('scratchpad');
-    const overlay = document.getElementById('scratchOverlay');
+    // Non-modal side panel: driven by inline display so it works regardless of
+    // theme.css. The app stays fully visible and clickable while it's open.
+    const panel = document.getElementById('scratchpad');
     let isOpen = false;
 
     // Right-side panel on desktop, bottom sheet on phone/tablet.
@@ -442,8 +444,7 @@
     function toggleScratchpad() {
         isOpen = !isOpen;
         applyPanelGeometry();
-        panel.style.display   = isOpen ? 'flex'  : 'none';
-        overlay.style.display = isOpen ? 'block' : 'none';
+        panel.style.display = isOpen ? 'flex' : 'none';
         panel.setAttribute('aria-hidden', !isOpen);
         if (isOpen) {
             const ta = document.getElementById('scratchText');
@@ -451,6 +452,14 @@
             if (!drawMode) ta.focus();
             setTimeout(resizeCanvas, 20);
         }
+    }
+
+    function clearNotes() {
+        if (!confirm('Clear the scratchpad notes?')) return;
+        const ta = document.getElementById('scratchText');
+        ta.value = '';
+        localStorage.removeItem('scratchpad');
+        ta.focus();
     }
 
     window.addEventListener('resize', () => { if (isOpen) { applyPanelGeometry(); resizeCanvas(); } });
