@@ -554,7 +554,7 @@
                         <th>Description</th>
                         <th>Category</th>
                         <th>Amount</th>
-                        <th></th>
+                        <th>Actions</th>
                     </tr>
                     <% transactions.forEach(t => {
                         const isExpense = t.amount > 0;
@@ -566,7 +566,10 @@
                         <td><%= t.description %></td>
                         <td><span style="font-size:12px;color:#888;"><%= t.category || '—' %></span></td>
                         <td style="color:<%= amtColor %>;font-weight:600;white-space:nowrap;"><%= sign %>$<%= Math.abs(t.amount).toFixed(2) %></td>
-                        <td><a href="/transactions/delete/<%= t.id %>" class="delete-btn" onclick="return confirm('Delete this transaction?')">Delete</a></td>
+                        <td class="actions">
+                            <a href="/transactions/edit/<%= t.id %>" class="edit-btn">Edit</a>
+                            <a href="/transactions/delete/<%= t.id %>" class="delete-btn" onclick="return confirm('Delete this transaction?')">Delete</a>
+                        </td>
                     </tr>
                     <% }) %>
                 </table>

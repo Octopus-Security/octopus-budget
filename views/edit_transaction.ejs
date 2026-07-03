@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/theme.css?v=<%= Date.now() %>">
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <h1>💰 Budget Tracker</h1>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/graphs">📈 Trends</a>
+                <a href="/settings">Settings</a>
+                <a href="/logout">Logout (<%= user.username %>)</a>
+            </div>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="card" style="max-width: 560px;">
+            <h2>💸 Edit Transaction</h2>
+            <form action="/transactions/edit/<%= transaction.id %>" method="post">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Description</label>
+                    <input type="text" name="description" value="<%= transaction.description %>" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Amount <span style="color:#666;font-size:11px;">positive = expense, negative = refund</span></label>
+                    <input type="number" step="0.01" name="amount" value="<%= transaction.amount %>" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Category <span style="color:#666;font-size:11px;">(optional)</span></label>
+                    <input type="text" name="category" value="<%= transaction.category || '' %>" placeholder="e.g. Groceries">
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Date</label>
+                    <input type="date" name="date" value="<%= transaction.date %>" required>
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>Provider <span style="color:#666;font-size:11px;">(optional — if BNPL)</span></label>
+                    <input type="text" name="provider" value="<%= transaction.provider || '' %>" list="edit-providers" placeholder="e.g. Affirm">
+                    <datalist id="edit-providers">
+                        <% providers.forEach(p => { %><option value="<%= p.name %>"><% }) %>
+                    </datalist>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Notes <span style="color:#666;font-size:11px;">(optional)</span></label>
+                    <textarea name="notes" rows="2" style="resize:vertical;"><%= transaction.notes || '' %></textarea>
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button type="submit">Update Transaction</button>
+                    <a href="/" class="btn" style="background:#191919;color:#aaa;border-color:#252525;">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
