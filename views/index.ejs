@@ -15,11 +15,50 @@
                 <a href="/">Dashboard</a>
                 <a href="/graphs">📈 Trends</a>
                 <a href="/settings">Settings</a>
-                <button class="scratchpad-toggle" onclick="toggleScratchpad()" title="Calculator / Scratchpad">🧮 Scratchpad</button>
+                <button class="scratchpad-toggle" onclick="toggleCalculator()" title="Calculator">🔢 Calculator</button>
+                <button class="scratchpad-toggle" onclick="toggleScratchpad()" title="Notes / Draw">✏️ Scratchpad</button>
                 <a href="/logout">Logout (<%= user.username %>)</a>
             </div>
         </div>
     </nav>
+
+    <!-- ── Calculator panel ─────────────────────────────────────────────── -->
+    <!-- Critical layout inlined so it works even with stale CSS cache. -->
+    <div id="calcPanel" aria-hidden="true"
+         style="display:none;position:fixed;top:0;left:0;width:300px;max-width:100%;height:100%;background:#111;border-right:1px solid #1e1e1e;z-index:100000;box-shadow:6px 0 32px rgba(0,0,0,.7);flex-direction:column;overflow:hidden;">
+        <div class="scratchpad-header">
+            <span>🔢 Calculator</span>
+            <button class="scratchpad-close" onclick="toggleCalculator()">✕</button>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;padding:10px;gap:8px;min-height:0;">
+            <div style="background:#0d0d0d;border-radius:8px;padding:14px 12px;display:flex;flex-direction:column;justify-content:flex-end;min-height:90px;flex-shrink:0;">
+                <div id="calcExpr" style="font-size:12px;color:#444;min-height:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;"></div>
+                <div id="calcValue" style="font-size:34px;font-weight:300;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;line-height:1.1;">0</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(5,1fr);gap:7px;flex:1;min-height:0;">
+                <button class="calc-btn calc-fn" onclick="calcClear()">C</button>
+                <button class="calc-btn calc-fn" onclick="calcBackspace()" style="font-size:16px;">⌫</button>
+                <button class="calc-btn calc-fn" onclick="calcPercent()">%</button>
+                <button class="calc-btn calc-op" onclick="calcOperator('÷')">÷</button>
+                <button class="calc-btn" onclick="calcDigit('7')">7</button>
+                <button class="calc-btn" onclick="calcDigit('8')">8</button>
+                <button class="calc-btn" onclick="calcDigit('9')">9</button>
+                <button class="calc-btn calc-op" onclick="calcOperator('×')">×</button>
+                <button class="calc-btn" onclick="calcDigit('4')">4</button>
+                <button class="calc-btn" onclick="calcDigit('5')">5</button>
+                <button class="calc-btn" onclick="calcDigit('6')">6</button>
+                <button class="calc-btn calc-op" onclick="calcOperator('−')">−</button>
+                <button class="calc-btn" onclick="calcDigit('1')">1</button>
+                <button class="calc-btn" onclick="calcDigit('2')">2</button>
+                <button class="calc-btn" onclick="calcDigit('3')">3</button>
+                <button class="calc-btn calc-op" onclick="calcOperator('+')">+</button>
+                <button class="calc-btn calc-fn" onclick="calcToggleSign()">±</button>
+                <button class="calc-btn" onclick="calcDigit('0')">0</button>
+                <button class="calc-btn" onclick="calcDecimal()">.</button>
+                <button class="calc-btn calc-eq" onclick="calcEquals()">=</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ── Scratchpad panel ─────────────────────────────────────────────── -->
     <!-- Critical layout is inlined so the panel pins right and stays hidden
@@ -623,7 +662,10 @@
         ta.focus();
     }
 
-    window.addEventListener('resize', () => { if (isOpen) { applyPanelGeometry(); resizeCanvas(); } });
+    window.addEventListener('resize', () => {
+        if (isOpen) { applyPanelGeometry(); resizeCanvas(); }
+        if (calcOpen) applyCalcGeometry();
+    });
 
     document.getElementById('scratchText').addEventListener('input', function() {
         localStorage.setItem('scratchpad', this.value);
@@ -677,6 +719,109 @@
     canvas.addEventListener('touchstart', e => { e.preventDefault(); painting = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }, { passive: false });
     canvas.addEventListener('touchmove',  e => { e.preventDefault(); if (!painting) return; const p = getPos(e); ctx.lineWidth = document.getElementById('brushSize').value; ctx.strokeStyle = drawColor; ctx.lineCap = 'round'; ctx.lineTo(p.x, p.y); ctx.stroke(); }, { passive: false });
     canvas.addEventListener('touchend',   () => { painting = false; });
+
+    // ── Calculator ──────────────────────────────────────────────────────────────
+    const calcPanelEl = document.getElementById('calcPanel');
+    let calcOpen = false;
+    let _c = { val: '0', operand: null, op: null, waiting: false, expr: '' };
+
+    function applyCalcGeometry() {
+        const mobile = window.innerWidth <= 640;
+        if (mobile) {
+            calcPanelEl.style.width  = '100%';
+            calcPanelEl.style.height = '78vh';
+            calcPanelEl.style.top    = 'auto';
+            calcPanelEl.style.bottom = '0';
+            calcPanelEl.style.borderRight = 'none';
+            calcPanelEl.style.borderTop   = '1px solid #1e1e1e';
+        } else {
+            calcPanelEl.style.width  = '300px';
+            calcPanelEl.style.height = '100%';
+            calcPanelEl.style.top    = '0';
+            calcPanelEl.style.bottom = 'auto';
+            calcPanelEl.style.borderRight = '1px solid #1e1e1e';
+            calcPanelEl.style.borderTop   = 'none';
+        }
+    }
+
+    function toggleCalculator() {
+        calcOpen = !calcOpen;
+        applyCalcGeometry();
+        calcPanelEl.style.display = calcOpen ? 'flex' : 'none';
+        calcPanelEl.setAttribute('aria-hidden', !calcOpen);
+        // On mobile, only one panel at a time
+        if (calcOpen && window.innerWidth <= 640 && isOpen) {
+            isOpen = false;
+            panel.style.display = 'none';
+            panel.setAttribute('aria-hidden', 'true');
+        }
+    }
+
+    function _cu() {
+        document.getElementById('calcValue').textContent = _c.val;
+        document.getElementById('calcExpr').textContent  = _c.expr;
+    }
+    function _cc(a, b, op) {
+        if (op === '+') return a + b;
+        if (op === '−') return a - b;
+        if (op === '×') return a * b;
+        if (op === '÷') return b !== 0 ? a / b : Infinity;
+        return b;
+    }
+    function _cf(n) {
+        if (!isFinite(n)) return 'Error';
+        return parseFloat(n.toPrecision(12)).toString();
+    }
+    function calcDigit(d) {
+        if (!_c.waiting && _c.val.replace(/[^0-9]/g, '').length >= 12) return;
+        _c.val = _c.waiting ? d : (_c.val === '0' ? d : _c.val + d);
+        _c.waiting = false;
+        _cu();
+    }
+    function calcDecimal() {
+        if (_c.waiting) { _c.val = '0.'; _c.waiting = false; }
+        else if (!_c.val.includes('.')) _c.val += '.';
+        _cu();
+    }
+    function calcOperator(op) {
+        const v = parseFloat(_c.val);
+        if (_c.operand !== null && !_c.waiting) {
+            const r = _cc(_c.operand, v, _c.op);
+            _c.val = _cf(r);
+            _c.operand = isFinite(r) ? r : null;
+        } else {
+            _c.operand = v;
+        }
+        _c.op = op; _c.waiting = true;
+        _c.expr = _c.val + ' ' + op;
+        _cu();
+    }
+    function calcEquals() {
+        if (_c.operand === null || _c.waiting) return;
+        const r = _cc(_c.operand, parseFloat(_c.val), _c.op);
+        _c.val = _cf(r); _c.expr = ''; _c.operand = null; _c.op = null; _c.waiting = false;
+        _cu();
+    }
+    function calcClear()      { _c = { val: '0', operand: null, op: null, waiting: false, expr: '' }; _cu(); }
+    function calcToggleSign() { const v = parseFloat(_c.val); if (!isNaN(v) && v !== 0) _c.val = _cf(v * -1); _cu(); }
+    function calcPercent()    { const v = parseFloat(_c.val); if (!isNaN(v)) _c.val = _cf(v / 100); _cu(); }
+    function calcBackspace()  { if (_c.waiting) return; _c.val = _c.val.length > 1 ? _c.val.slice(0, -1) : '0'; _cu(); }
+
+    document.addEventListener('keydown', e => {
+        if (!calcOpen) return;
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (e.key >= '0' && e.key <= '9')       { e.preventDefault(); calcDigit(e.key); }
+        else if (e.key === '.')                   { e.preventDefault(); calcDecimal(); }
+        else if (e.key === '+')                   { e.preventDefault(); calcOperator('+'); }
+        else if (e.key === '-')                   { e.preventDefault(); calcOperator('−'); }
+        else if (e.key === '*')                   { e.preventDefault(); calcOperator('×'); }
+        else if (e.key === '/')                   { e.preventDefault(); calcOperator('÷'); }
+        else if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); calcEquals(); }
+        else if (e.key === 'Backspace')           { e.preventDefault(); calcBackspace(); }
+        else if (e.key === 'Escape')              { e.preventDefault(); toggleCalculator(); }
+        else if (e.key === 'c' || e.key === 'C') { e.preventDefault(); calcClear(); }
+    });
     </script>
 </body>
 </html>
