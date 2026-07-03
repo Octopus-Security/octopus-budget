@@ -12,6 +12,11 @@ const axios = require('axios');
 const auth = new AuthClient();
 const AUTH_URL = process.env.AUTH_SERVICE_URL || 'http://octopus-auth:3002';
 
+// Machine-to-machine auth for internal endpoints (e.g. cortex /purchase).
+// Shared secret across the octopus stack; owner whose budget receives writes.
+const INTERNAL_SECRET = process.env.INTERNAL_SECRET || '';
+const BUDGET_OWNER    = process.env.BUDGET_OWNER || 'psychopathy';
+
 // Ensure data directory exists
 const dataDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) {
@@ -475,10 +480,66 @@ app.post('/transactions', requireLogin, async (req, res) => {
     res.redirect('/');
 });
 
+app.get('/transactions/edit/:id', requireLogin, async (req, res) => {
+    const { Transaction, Account, Provider } = getDatabase(req.user.username);
+    const transaction = await Transaction.findByPk(req.params.id);
+    if (!transaction) return res.redirect('/');
+    const [accounts, providers] = await Promise.all([Account.findAll(), Provider.findAll()]);
+    res.render('edit_transaction', { title: 'Edit Transaction', transaction, accounts, providers, user: req.user });
+});
+
+app.post('/transactions/edit/:id', requireLogin, async (req, res) => {
+    const { Transaction } = getDatabase(req.user.username);
+    const tx = await Transaction.findByPk(req.params.id);
+    if (!tx) return res.redirect('/');
+    const { description, amount, category, date, provider, notes } = req.body;
+    if (description !== undefined && description.trim() !== '') tx.description = description.trim();
+    if (amount !== undefined && amount !== '') tx.amount = parseFloat(amount);
+    tx.category = (category || '').trim() || null;
+    if (date) tx.date = date;
+    tx.provider = (provider || '').trim() || null;
+    tx.notes = (notes || '').trim() || null;
+    await tx.save();
+    res.redirect('/');
+});
+
 app.get('/transactions/delete/:id', requireLogin, async (req, res) => {
     const { Transaction } = getDatabase(req.user.username);
     await Transaction.destroy({ where: { id: req.params.id } });
     res.redirect('/');
+});
+
+// ── Internal transactions API (machine-to-machine, e.g. cortex /purchase) ─────
+// Docker-network only, guarded by x-internal-secret. Writes to the owner's DB.
+app.post('/api/internal/transactions', async (req, res) => {
+    const secret = req.headers['x-internal-secret'];
+    if (INTERNAL_SECRET && secret !== INTERNAL_SECRET) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        const username = (req.body.username || BUDGET_OWNER || '').trim();
+        if (!username) return res.status(400).json({ error: 'no target user' });
+        await ensureUserDb(username);
+        const { Transaction } = getDatabase(username);
+
+        const amount = parseFloat(req.body.amount);
+        if (isNaN(amount)) return res.status(400).json({ error: 'amount must be a number' });
+
+        const today = new Date().toISOString().slice(0, 10);
+        let date = (req.body.date || '').trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) date = today; // fall back on bad/blank dates
+        const description = (req.body.note || '').trim() || 'Unlabeled';
+
+        const tx = await Transaction.create({
+            description,
+            amount,
+            category: (req.body.category || '').trim() || null,
+            date,
+            notes: null,
+        });
+        res.json({ ok: true, id: tx.id, description: tx.description, amount: tx.amount, date: tx.date });
+    } catch (e) {
+        console.error('internal transaction create failed:', e.message);
+        res.status(500).json({ error: e.message });
+    }
 });
 
 // User settings routes
