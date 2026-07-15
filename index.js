@@ -103,7 +103,10 @@ app.get('/login', (req, res) => {
     res.redirect(`${AUTH_LOGIN_URL}?redirect=${back}`);
 });
 
-app.get('/register', (req, res) => res.redirect(AUTH_LOGIN_URL));
+app.get('/register', (req, res) => {
+    const back = encodeURIComponent(`https://${req.get('host')}/`);
+    res.redirect(`${AUTH_LOGIN_URL}?register=1&redirect=${back}`);
+});
 
 app.get('/logout', (req, res) => {
     const base = process.env.AUTH_PUBLIC_URL || 'https://auth.octopustechnology.net';
