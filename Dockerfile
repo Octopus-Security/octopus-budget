@@ -8,7 +8,7 @@ ARG NPM_TOKEN
 COPY package*.json ./
 RUN echo "@octopus-security:registry=https://npm.pkg.github.com" > .npmrc \
  && echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .npmrc \
- && npm install --build-from-source=sqlite3 \
+ && npm install --build-from-source=sqlite3 --legacy-peer-deps \
  && rm -f .npmrc
 
 COPY . .
