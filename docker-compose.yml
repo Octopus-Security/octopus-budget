@@ -18,6 +18,12 @@ services:
       - PORT=3000
       - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
       - JWT_SECRET=${JWT_SECRET:-octopus-shared-secret-change-in-production}
+      # This service verifies sessions LOCALLY with the shared secret, so it
+      # needs the RSA public key to keep doing that once auth signs RS256.
+      # Without it, every session is rejected here the moment auth switches.
+      # A Portainer variable only interpolates into THIS file — a name absent
+      # here never reaches the container, whatever the UI shows.
+      - AUTH_PUBLIC_KEY=${AUTH_PUBLIC_KEY:-}
       - AUTH_SERVICE_URL=http://octopus-auth:3002
       # Machine-to-machine: cortex /purchase posts here. Must match cortex's INTERNAL_SECRET.
       - INTERNAL_SECRET=${INTERNAL_SECRET:-}
