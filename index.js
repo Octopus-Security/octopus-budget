@@ -516,7 +516,18 @@ app.get('/transactions/delete/:id', requireLogin, async (req, res) => {
 // Docker-network only, guarded by x-internal-secret. Writes to the owner's DB.
 app.post('/api/internal/transactions', async (req, res) => {
     const secret = req.headers['x-internal-secret'];
-    if (INTERNAL_SECRET && secret !== INTERNAL_SECRET) return res.status(403).json({ error: 'Forbidden' });
+    // Fails CLOSED. This used to read `if (INTERNAL_SECRET && ...)`, which skips
+    // the check entirely when the variable is unset — and it was unset on this
+    // stack, so the route below was accepting an arbitrary `username` from the
+    // body, unauthenticated, from the public internet. The compose file declares
+    // `INTERNAL_SECRET=${INTERNAL_SECRET:-}`, so a missing Portainer variable
+    // becomes an empty string rather than an error, and nothing anywhere said so.
+    //
+    // Unconfigured now means closed. If cortex /purchase stops working, the
+    // cause is a missing INTERNAL_SECRET on this stack and the log line at
+    // startup says exactly that — which is the failure you want, rather than a
+    // write endpoint that quietly works for everyone.
+    if (!INTERNAL_SECRET || secret !== INTERNAL_SECRET) return res.status(403).json({ error: 'Forbidden' });
     try {
         const username = (req.body.username || BUDGET_OWNER || '').trim();
         if (!username) return res.status(400).json({ error: 'no target user' });
@@ -875,4 +886,13 @@ app.delete('/api/debts/:id', authenticateJWT, async (req, res) => {
 app.listen(port, () => {
   console.log(`Budget Tracker app listening at http://localhost:${port}`);
   console.log(`Data directory: ${dataDir}`);
+  // Say it out loud. The compose file turns a missing Portainer variable into an
+  // empty string, so without this the only symptom is cortex /purchase silently
+  // 403ing — which looks like a cortex problem, not a missing variable here.
+  if (!INTERNAL_SECRET) {
+    console.warn(
+      '[budget] INTERNAL_SECRET is not set — /api/internal/transactions is DISABLED.\n'
+      + '[budget] Set it on this stack to cortex\'s value so machine-to-machine writes work.'
+    );
+  }
 });
