@@ -529,8 +529,18 @@ app.post('/api/internal/transactions', async (req, res) => {
     // write endpoint that quietly works for everyone.
     if (!INTERNAL_SECRET || secret !== INTERNAL_SECRET) return res.status(403).json({ error: 'Forbidden' });
     try {
-        const username = (req.body.username || BUDGET_OWNER || '').trim();
+        // X-Service-User first: it is the fleet convention (octopus-health reads
+        // the same header, octopus-cortex sends it from the acting-user context
+        // set at each chat door) and it applies without every caller having to
+        // remember a body field. BUDGET_OWNER stays as the fallback for calls
+        // that name nobody — scheduled work is the owner's by definition.
+        const username = (req.get('X-Service-User') || req.body.username || BUDGET_OWNER || '').trim();
         if (!username) return res.status(400).json({ error: 'no target user' });
+        // A name that could not be registered must not be conjured here either:
+        // ensureUserDb() below CREATES a database for whatever it is handed.
+        if (!/^[A-Za-z0-9_-]{3,30}$/.test(username)) {
+          return res.status(400).json({ error: 'invalid target user' });
+        }
         await ensureUserDb(username);
         const { Transaction } = getDatabase(username);
 
