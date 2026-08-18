@@ -17,7 +17,19 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
-      - JWT_SECRET=${JWT_SECRET:-octopus-shared-secret-change-in-production}
+      # Legacy HS256 secret — RETIRED. Empty on purpose; never give this a
+      # default again, and never a working one.
+      #
+      # It used to read `${JWT_SECRET:-octopus-shared-secret-change-in-production}`,
+      # a value published in the (then public) octopus-auth repo. Removing the
+      # variable from Portainer to retire it therefore did not stop this service
+      # trusting a shared secret — it started trusting a public one, and anyone
+      # could mint a session for any user. This service holds a database per
+      # user, so that was personal data for both accounts.
+      #
+      # Empty means auth-client skips the key. Verification is RS256 via
+      # AUTH_PUBLIC_KEY below, which is confirmed set in the container.
+      - JWT_SECRET=${JWT_SECRET:-}
       # This service verifies sessions LOCALLY with the shared secret, so it
       # needs the RSA public key to keep doing that once auth signs RS256.
       # Without it, every session is rejected here the moment auth switches.
