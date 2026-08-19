@@ -86,6 +86,36 @@ app.use(async (req, res, next) => {
 
 const authenticateJWT = createAuthMiddleware();
 
+// AUTH_REMOTE_VERIFY is a security control, and an unsupported one is SILENT.
+//
+// This is the gate on the 17 live /api/* routes, and the ONLY one that runs.
+// api/middleware/auth.js builds another, but api/ is a legacy mobile scaffold
+// that index.js never requires — CLAUDE.md says so, and the first version of
+// this check went in there and printed nothing on a correctly rebuilt stack.
+// Dead code is a bad place to assert anything: it fails open and silently.
+//
+// Remote verification arrived in @octopus-security/auth-client 1.2.0. This
+// service resolves the dependency at BUILD time and has no lockfile entry for
+// it, so an image built before 1.2.0 ignores the variable: Bearer routes keep
+// verifying locally, keep missing the tokenEpoch that revocation bumps, and log
+// nothing to say the control is off. The compose would look right and
+// `docker exec ... env` would show the variable set.
+//
+// So ask the middleware what it actually built rather than trusting the
+// environment. Warn rather than process.exit(1) — refusing to boot over a
+// half-finished migration is what turned the RS256 change into an outage.
+if (/^(1|true|yes)$/i.test(process.env.AUTH_REMOTE_VERIFY || '') && !authenticateJWT.remote) {
+    console.error(
+        '[auth] AUTH_REMOTE_VERIFY is set, but this build of @octopus-security/auth-client\n'
+        + '       does not support it (needs >=1.2.0, and the compose asks for it).\n'
+        + '       Bearer routes are verifying LOCALLY and CANNOT see revocation — a revoked\n'
+        + '       session keeps working here until it expires, up to seven days.\n'
+        + '       REBUILD this stack. A redeploy alone will not change the installed package.'
+    );
+} else if (authenticateJWT.remote) {
+    console.log('[auth] Bearer routes verify remotely against octopus-auth — revocation is visible.');
+}
+
 
 const requireLogin = async (req, res, next) => {
     if (!req.user) {
