@@ -36,6 +36,16 @@ services:
       # A Portainer variable only interpolates into THIS file — a name absent
       # here never reaches the container, whatever the UI shows.
       - AUTH_PUBLIC_KEY=${AUTH_PUBLIC_KEY:-}
+      # Make "sign out everywhere" mean something HERE. See the identical block
+      # in octopus-health for the full reasoning.
+      #
+      # Short version: createAuthMiddleware() defaults to local mode, which
+      # cannot see the per-user tokenEpoch that revocation bumps, so a revoked
+      # session kept these /api routes for up to seven days. This service holds
+      # a database per user. Literal 1 rather than a ${VAR:-1} default, because
+      # a missing Portainer variable must not be able to switch a security
+      # control off quietly. Fail-closed if auth is unreachable, by design.
+      - AUTH_REMOTE_VERIFY=1
       - AUTH_SERVICE_URL=http://octopus-auth:3002
       # Machine-to-machine: cortex /purchase posts here. Must match cortex's INTERNAL_SECRET.
       - INTERNAL_SECRET=${INTERNAL_SECRET:-}
