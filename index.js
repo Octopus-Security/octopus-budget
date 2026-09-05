@@ -33,6 +33,27 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// ── Liveness and deploy verification ─────────────────────────────────────────
+// Registered BEFORE the SSO middleware below on purpose. That middleware calls
+// out to octopus-auth when a cookie is present, and a liveness check that can
+// be slowed or broken by another service is not a liveness check. Neither route
+// needs a credential: when this service is the one in doubt, needing a working
+// login to ask it anything defeats the point.
+const { BUILD, STARTED_AT } = require('./build');
+
+app.get('/health', (req, res) => res.json({ status: 'ok', service: 'octopus-budget' }));
+
+// Which code this container is running. Portainer polls and reports back to
+// nobody, so without this a deploy that never landed looks exactly like one
+// that landed and did not help. `build: "unknown"` means the stamp could not be
+// computed — it never means current.
+app.get('/api/build', (req, res) => res.json({
+    ok: true,
+    service: 'octopus-budget',
+    build: BUILD,
+    startedAt: STARTED_AT,
+}));
+
 // ── Stateless SSO auth ────────────────────────────────────────────────────────
 // One central login at auth.octopustechnology.net sets a JWT cookie scoped to the
 // whole domain; verify it against octopus-auth (cached) and expose req.user.
