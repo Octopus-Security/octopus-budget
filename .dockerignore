@@ -4,3 +4,6 @@ npm-debug.log
 .gitignore
 README.md
 data/*.db
+# The Dockerfile writes its own from ARG NPM_TOKEN and deletes it after
+# `npm install`; the COPY that follows would otherwise put a committed one back.
+.npmrc
