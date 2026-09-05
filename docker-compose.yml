@@ -47,6 +47,12 @@ services:
       # control off quietly. Fail-closed if auth is unreachable, by design.
       - AUTH_REMOTE_VERIFY=1
       - AUTH_SERVICE_URL=http://octopus-auth:3002
+      # Where the BROWSER is sent to sign in, as opposed to where this container
+      # verifies tokens. The code has always read this and the compose never
+      # passed it, so the default below was the only value that could ever apply
+      # and setting it in Portainer would have looked like it worked and done
+      # nothing. Same default, now actually reachable.
+      - AUTH_PUBLIC_URL=${AUTH_PUBLIC_URL:-https://auth.octopustechnology.net}
       # Machine-to-machine: cortex /purchase posts here. Must match cortex's INTERNAL_SECRET.
       - INTERNAL_SECRET=${INTERNAL_SECRET:-}
       # Whose budget receives internal purchase writes.

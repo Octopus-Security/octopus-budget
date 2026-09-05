@@ -4,11 +4,43 @@ const path = require('path');
 // User data is now handled by octopus-auth service
 // This file only handles budget-specific data models
 
+// The username is interpolated straight into a filesystem path below, so it is
+// the whole isolation boundary of this service: there is no owner column, and an
+// unfiltered query inside one user's database is correct precisely BECAUSE the
+// file is the boundary.
+//
+// Until 2026-09-05 nothing here checked it. A username containing a slash
+// escaped the data directory — `../..` resolved to `<root>/.._database.sqlite`,
+// one level outside `data/`. It was never reachable in practice, because
+// octopus-auth restricts usernames to exactly this pattern at registration.
+//
+// That is the problem. The control lived in a DIFFERENT REPO, was invisible from
+// this file, and this service would have kept trusting it through any future
+// loosening. The estate rule is that enforcement goes in the service that owns
+// the data, so it goes here too — the two agreeing is the point, not duplication.
+const SAFE_USERNAME = /^[A-Za-z0-9_.-]+$/;
+
 const getDatabase = (username) => {
+    const name = String(username == null ? '' : username);
+    if (!SAFE_USERNAME.test(name)) {
+        // Refuse rather than sanitise. Stripping the offending characters would
+        // map several distinct people onto one filename, which is a quieter and
+        // far worse failure than the traversal it prevents.
+        throw new Error(`refusing to open a budget database for an unsafe username: ${JSON.stringify(name)}`);
+    }
+
+    const storage = path.join(__dirname, 'data', `${name}_database.sqlite`);
+    const dataDir = path.resolve(__dirname, 'data');
+    // The invariant the regex is protecting, asserted directly. If the pattern is
+    // ever widened, this still holds the line.
+    if (!path.resolve(storage).startsWith(dataDir + path.sep)) {
+        throw new Error(`refusing to open a budget database outside data/: ${storage}`);
+    }
+
     // Initialize Sequelize with SQLite - per-user database for budget data
     const sequelize = new Sequelize({
         dialect: 'sqlite',
-        storage: path.join(__dirname, 'data', `${username}_database.sqlite`),
+        storage,
         logging: false
     });
 
