@@ -1,70 +1,98 @@
-'use strict';
+"use strict";
 
 /**
- * The app can actually be loaded.
+ * The service can actually be loaded.
  *
- * This exists because it already happened, on 2026-09-06, to this service and
- * to its neighbour, from one line of a cache-busting change:
+ * This exists because it already happened. On 2026-09-06 a cache-busting change
+ * put `app.locals.asset = asset;` above the `const { … asset } =
+ * require('./build')` that declares it. `const` is hoisted but not initialised,
+ * so that throws "Cannot access 'asset' before initialization" at MODULE LOAD —
+ * not a broken page, a container that never starts, which behind the proxy is a
+ * 502 on every route at once. octopus-budget and octopus-shopper both went down
+ * that way, with 22 and 102 green tests respectively.
  *
- *     app.set('views', …);
- *     app.locals.asset = asset;          // ← here
- *     …
- *     const { BUILD, STARTED_AT, asset } = require('./build');   // ← declared here
+ * That is the point. Every test in those repos imported the PIECES — helpers,
+ * routers, pure functions — and not one of them loaded the entrypoint, so a
+ * green suite sat beside a service that could not boot. The estate's own rule,
+ * turned back on it: assert at the thing that is used, not at the parts that
+ * work.
  *
- * `const` is hoisted but not initialised, so reading it earlier throws
- * "Cannot access 'asset' before initialization" — at MODULE LOAD, not on a
- * request. The result is not a broken page. It is a container that never
- * starts, and behind a proxy that is a 502 on every route at once.
- *
- * Every other test in this repo passed. All of them import the pieces —
- * helpers, routers, pure functions — and none of them loaded index.js, so a
- * green suite sat beside a service that could not boot. That is the estate's own
- * rule turned back on it: assert at the thing that is used, not at the parts
- * that work.
- *
- * Deliberately a SUBPROCESS. Requiring index.js in-process would bind a port,
- * open the database and leave a listener behind for the rest of the run; and a
- * throw during load is exactly what is being detected, so it must not take the
- * test runner with it.
+ * Deliberately a SUBPROCESS. Loading the entrypoint in-process would bind a
+ * port, open a database and leave a listener behind for the rest of the run;
+ * and a throw during load is exactly what is being detected, so it must not
+ * take the runner with it.
  *
  * Run: node --test test/boots.test.js
  */
 
-const { test }        = require('node:test');
-const assert          = require('node:assert');
-const path            = require('node:path');
-const { spawnSync }   = require('node:child_process');
+const { test }      = require('node:test');
+const assert        = require('node:assert');
+const path          = require('node:path');
+const { spawnSync } = require('node:child_process');
 
-const root = path.join(__dirname, '..');
+const root  = path.join(__dirname, '..');
+const ENTRY = 'index.js';
 
-test('index.js loads without throwing', () => {
-  const r = spawnSync(process.execPath, ['-e', `
-    // Nothing must reach a real network or a real port.
-    process.env.PORT = '0';
-    require('./index.js');
-    console.log('LOADED');
-    process.exit(0);
-  `], { cwd: root, encoding: 'utf8', timeout: 30000, env: { ...process.env, PORT: '0' } });
+test('the entrypoint loads, or fails only for something this machine lacks', () => {
+  const r = spawnSync(
+    process.execPath,
+    ['-e', "process.env.PORT='0'; require('./" + ENTRY + "'); console.log('LOADED'); process.exit(0);"],
+    { cwd: root, encoding: 'utf8', timeout: 30000, env: { ...process.env, PORT: '0' } },
+  );
 
   const output = `${r.stdout || ''}${r.stderr || ''}`;
+  const excerpt = output.slice(0, 700);
+
+  // The failure this test was written for, named explicitly so the message says
+  // what to do rather than making someone read a stack trace.
   assert.ok(!/before initialization/.test(output),
-    'index.js reads a const before it is declared — the container will not start, ' +
-    `and every route 502s:\n${output.slice(0, 600)}`);
-  assert.match(output, /LOADED/, `index.js did not load:\n${output.slice(0, 600)}`);
-  assert.strictEqual(r.status, 0, `index.js exited ${r.status}:\n${output.slice(0, 600)}`);
+    `${ENTRY} reads a const before it is declared. The container will not start ` +
+    `and every route 502s — move the assignment below the require:\n${excerpt}`);
+
+  if (/LOADED/.test(output)) {
+    assert.strictEqual(r.status, 0, `${ENTRY} loaded then exited ${r.status}:\n${excerpt}`);
+    return;
+  }
+
+  // ── Two things that are the MACHINE's fault, not this repo's ───────────────
+  //
+  // Both are narrow on purpose. Widening either would turn this into a test
+  // that passes whatever happens, which is worse than not having one.
+
+  // 1. A dependency that is not installed here — npm install does not work on
+  //    this laptop while the @octopus-security packages are private. A RELATIVE
+  //    require that cannot resolve is NOT this: that is a file missing from the
+  //    repo, and it falls through and fails.
+  const missingDep = /Cannot find module '([^']+)'/.exec(output);
+  if (missingDep && !missingDep[1].startsWith('.')) {
+    console.log(`  (not loaded here: ${missingDep[1]} is not installed on this machine)`);
+    return;
+  }
+
+  // 2. A path the container has and a checkout does not — octopus-claude wants
+  //    to mkdir /workspace, a volume in production and root-owned here.
+  //    Restricted to an ABSOLUTE path outside the repo, so a permission error
+  //    on something the repo actually ships still fails.
+  const fsDenied = /(?:EACCES|EPERM|EROFS|ENOENT)[^\n]*'(\/[^']*)'/.exec(output);
+  if (fsDenied && !fsDenied[1].startsWith(root)) {
+    console.log(`  (not loaded here: ${fsDenied[1]} exists in the container, not in a checkout)`);
+    return;
+  }
+
+  assert.fail(`${ENTRY} failed to load, and not for anything this machine is missing:\n${excerpt}`);
 });
 
 /**
  * The same bug, caught statically and by name.
  *
- * The boot test above is the real one — it fails the way production failed. This
- * is the cheap companion that says WHY in one line instead of a stack trace, and
- * it also catches the ordering being reintroduced in a file that happens to load
- * for some other reason.
+ * The boot test above is the real one — it fails the way production failed.
+ * This is the cheap companion that says WHY in one line instead of a stack
+ * trace, and it catches the ordering being reintroduced even on a machine where
+ * the entrypoint cannot load for other reasons.
  */
 test('app.locals.asset is assigned after the const that declares asset', () => {
   const fs  = require('node:fs');
-  const src = fs.readFileSync(path.join(root, 'index.js'), 'utf8');
+  const src = fs.readFileSync(path.join(root, ENTRY), 'utf8');
 
   const declared = src.search(/const \{[^}]*\basset\b[^}]*\} = require\('\.\/build'\)/);
   const assigned = src.indexOf('app.locals.asset');
