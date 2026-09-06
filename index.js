@@ -28,14 +28,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.set('view engine', 'ejs');
 app.set('views', './views');
-// Every render gets asset() without being passed it. Cloudflare caches CSS and
-// JS for four hours and overrides the origin, so an unversioned URL means a
-// shipped fix is invisible for that long and looks exactly like a failed
-// deploy. app.locals rather than a per-render local because the failure mode of
-// "remember to pass it" is one template quietly going stale — which is the bug,
-// not a smaller version of it.
-app.locals.asset = asset;
-
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -48,6 +40,20 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // needs a credential: when this service is the one in doubt, needing a working
 // login to ask it anything defeats the point.
 const { BUILD, STARTED_AT, asset } = require('./build');
+
+// Every render gets asset() without being passed it. Cloudflare caches CSS and
+// JS for four hours and overrides the origin, so an unversioned URL means a
+// shipped fix is invisible for that long and looks exactly like a failed
+// deploy. app.locals rather than a per-render local because the failure mode of
+// "remember to pass it" is one template quietly going stale — which is the bug,
+// not a smaller version of it.
+//
+// It has to sit AFTER the require above, not next to app.set('views', …) where
+// it reads more naturally. `const` is not hoisted into a usable state, so
+// assigning it earlier throws "Cannot access 'asset' before initialization" at
+// module load — which is not a broken page, it is a container that never
+// starts. That is exactly what shipped, and budget 502'd until it was fixed.
+app.locals.asset = asset;
 
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'octopus-budget' }));
 
