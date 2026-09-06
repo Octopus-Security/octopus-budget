@@ -38,7 +38,16 @@ const ROOT = __dirname;
 // Dependencies are pinned by the lockfile and reinstalled per build; `data` is
 // the live per-user databases and changes constantly, which would make the
 // stamp move for reasons that are not deploys.
-const SKIP_DIRS = new Set(['node_modules', '.git', 'data']);
+//
+// `test` is excluded for a weaker reason, and one worth stating because this
+// file was the odd one out. The tests ARE in the image — the Dockerfile copies
+// everything — so hashing them describes the artefact perfectly honestly. But
+// the stamp is read to answer "did my push change what this container does",
+// and a test-only commit moved it, which makes the answer noisier than the
+// question. Every other build.js in the estate skips test/; a stamp that means
+// a slightly different thing in one service is the kind of undocumented
+// difference that costs someone an afternoon.
+const SKIP_DIRS = new Set(['node_modules', '.git', 'data', 'test']);
 const KEEP_EXT  = new Set(['.js', '.json', '.ejs', '.css', '.html', '.mjs']);
 const SKIP_FILES = new Set(['package-lock.json']);
 

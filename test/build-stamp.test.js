@@ -67,5 +67,10 @@ test('the walk covers the app and excludes dependencies and live data', () => {
   assert.ok(files.some(f => f.startsWith('views/')), 'templates are not covered');
   assert.ok(!files.some(f => f.startsWith('node_modules')), 'node_modules must not be hashed');
   assert.ok(!files.some(f => f.startsWith('data/')), 'live data must not be hashed');
+  // Every other build.js in the estate skips test/. A stamp meaning a slightly
+  // different thing in one service is the kind of undocumented difference that
+  // costs someone an afternoon — this one used to be the odd one out, and a
+  // test-only commit moved it.
+  assert.ok(!files.some(f => f.startsWith('test/')), 'tests must not move the stamp');
   assert.ok(!files.includes('package-lock.json'), 'the lockfile is deliberately excluded');
 });
