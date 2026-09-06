@@ -28,6 +28,14 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.set('view engine', 'ejs');
 app.set('views', './views');
+// Every render gets asset() without being passed it. Cloudflare caches CSS and
+// JS for four hours and overrides the origin, so an unversioned URL means a
+// shipped fix is invisible for that long and looks exactly like a failed
+// deploy. app.locals rather than a per-render local because the failure mode of
+// "remember to pass it" is one template quietly going stale — which is the bug,
+// not a smaller version of it.
+app.locals.asset = asset;
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -39,7 +47,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // be slowed or broken by another service is not a liveness check. Neither route
 // needs a credential: when this service is the one in doubt, needing a working
 // login to ask it anything defeats the point.
-const { BUILD, STARTED_AT } = require('./build');
+const { BUILD, STARTED_AT, asset } = require('./build');
 
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'octopus-budget' }));
 

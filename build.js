@@ -86,4 +86,44 @@ function computeBuild() {
 const BUILD      = computeBuild();
 const STARTED_AT = new Date().toISOString();
 
-module.exports = { BUILD, STARTED_AT, sourceFiles };
+/**
+ * ─── Cache-busting for the client assets ──────────────────────────────────────
+ *
+ * Cloudflare caches CSS and JS for four hours and OVERRIDES the origin's
+ * Cache-Control, so a shipped front-end fix is invisible for that long and looks
+ * exactly like a deploy that failed. On 2026-09-05 a menu fix on the public site
+ * was correct, deployed, verified in a browser — and still broken for the person
+ * looking at it, because they were being served August's stylesheet
+ * (`cf-cache-status: HIT`, `age: 1332`). octopus-science lost three rounds of bug
+ * reports to the same thing.
+ *
+ * `/theme.css?v=ab12cd34` is a different URL, so it is fetched fresh the moment
+ * it is deployed. No purge, no API token, nothing to remember.
+ *
+ * ── Per file, not per build ──────────────────────────────────────────────────
+ * The stamp is a hash of THAT FILE's content, not BUILD. BUILD moves whenever
+ * any server file changes, which would re-download every asset on every deploy
+ * and throw away caching that is doing its job. A per-file hash changes when and
+ * only when that asset does.
+ *
+ * ── Read once at startup ─────────────────────────────────────────────────────
+ * The files are immutable for the life of the container — the image is rebuilt
+ * to change them — so hashing on each render would be pure cost. An asset that
+ * cannot be read returns the bare path rather than throwing: a missing stamp is
+ * a stale cache, a thrown error is a blank page.
+ */
+const ASSET_STAMPS = new Map();
+
+function asset(urlPath) {
+  if (!ASSET_STAMPS.has(urlPath)) {
+    let stamp = null;
+    try {
+      const file = path.join(ROOT, 'public', urlPath.replace(/^\/+/, '').split('?')[0]);
+      stamp = crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex').slice(0, 8);
+    } catch { /* not on disk — serve it unstamped rather than failing the render */ }
+    ASSET_STAMPS.set(urlPath, stamp ? `${urlPath}?v=${stamp}` : urlPath);
+  }
+  return ASSET_STAMPS.get(urlPath);
+}
+
+module.exports = { BUILD, STARTED_AT, sourceFiles, asset };
