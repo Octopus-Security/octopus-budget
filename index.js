@@ -12,6 +12,18 @@ const axios = require('axios');
 const auth = new AuthClient();
 const AUTH_URL = process.env.AUTH_SERVICE_URL || 'http://octopus-auth:3002';
 
+// May THIS signed-in account use budget at all? Per-user app access, enforced
+// here rather than only hiding the hub tile (appAccess.js; octopus-auth owns the
+// answer). Admins always pass, and with no override or default set the answer is
+// "allowed", so wiring this in changes nothing until the owner hides the app.
+const { createAppGate } = require('./appAccess');
+const appAccessGate = createAppGate({
+    authUrl:    AUTH_URL,
+    slug:       process.env.APP_ACCESS_SLUG || 'budget',
+    upgradeUrl: process.env.UPGRADE_URL || '',
+    appName:    'Budget',
+});
+
 // Machine-to-machine auth for internal endpoints (e.g. cortex /purchase).
 // Shared secret across the octopus stack; owner whose budget receives writes.
 const INTERNAL_SECRET = process.env.INTERNAL_SECRET || '';
@@ -66,6 +78,8 @@ app.get('/api/build', (req, res) => res.json({
     service: 'octopus-budget',
     build: BUILD,
     startedAt: STARTED_AT,
+    // Derived from the gate object requireLogin calls, so it cannot disagree with it.
+    ...(appAccessGate.slug ? { gate: appAccessGate.slug } : {}),
 }));
 
 // ── Stateless SSO auth ────────────────────────────────────────────────────────
@@ -119,7 +133,11 @@ app.use(async (req, res, next) => {
     next();
 });
 
-const authenticateJWT = createAuthMiddleware();
+const verifyJWT = createAuthMiddleware();
+// Bearer callers (mobile) get the same app gate as the browser.
+const authenticateJWT = (req, res, next) =>
+    verifyJWT(req, res, (err) => (err ? next(err) : appAccessGate(req, res, next)));
+authenticateJWT.remote = verifyJWT.remote;
 
 // AUTH_REMOTE_VERIFY is a security control, and an unsupported one is SILENT.
 //
@@ -157,9 +175,14 @@ const requireLogin = async (req, res, next) => {
         const back = encodeURIComponent(`https://${req.get('host')}${req.originalUrl}`);
         return res.redirect(`${AUTH_LOGIN_URL}?redirect=${back}`);
     }
-    try { await ensureUserDb(req.user.username); }
-    catch (e) { console.error('ensureUserDb failed:', e.message); }
-    next();
+    // Signed in is not the same as entitled to THIS app; the gate is the second
+    // question and only runs once the first is answered yes.
+    appAccessGate(req, res, async (err) => {
+        if (err) return next(err);
+        try { await ensureUserDb(req.user.username); }
+        catch (e) { console.error('ensureUserDb failed:', e.message); }
+        next();
+    });
 };
 
 // Login/register/logout are centralized at auth.octopustechnology.net now.

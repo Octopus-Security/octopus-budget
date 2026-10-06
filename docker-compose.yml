@@ -47,6 +47,10 @@ services:
       # control off quietly. Fail-closed if auth is unreachable, by design.
       - AUTH_REMOTE_VERIFY=1
       - AUTH_SERVICE_URL=http://octopus-auth:3002
+      # Per-user app access (appAccess.js): refuse accounts the owner has turned
+      # this app off for. Defaults to this app's own slug in octopus-auth's hub list.
+      - APP_ACCESS_SLUG=${APP_ACCESS_SLUG:-budget}
+      - UPGRADE_URL=${UPGRADE_URL:-}
       # Where the BROWSER is sent to sign in, as opposed to where this container
       # verifies tokens. The code has always read this and the compose never
       # passed it, so the default below was the only value that could ever apply
