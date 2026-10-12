@@ -256,6 +256,65 @@ const getDatabase = (username) => {
         monthlySpend:      { type: DataTypes.FLOAT,   allowNull: true }
     });
 
+    // ── Dashboard layout layer ────────────────────────────────────────────────
+    // Built-in sections keep their real models above; these tables only hold the
+    // per-user presentation (titles, order, hidden) and generic user-made data.
+    // All additive: sync({ alter: true }) creates them on next login.
+
+    // One row per built-in section the user has customised, keyed by built-in key.
+    const SectionPref = sequelize.define('SectionPref', {
+        key:      { type: DataTypes.STRING, allowNull: false, unique: true },
+        title:    { type: DataTypes.STRING, allowNull: true },
+        position: { type: DataTypes.INTEGER, allowNull: true },
+        hidden:   { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    });
+
+    // A section the user created. Its rows are CustomRow, its cells CustomValue.
+    const CustomSection = sequelize.define('CustomSection', {
+        title:    { type: DataTypes.STRING, allowNull: false },
+        position: { type: DataTypes.INTEGER, allowNull: true },
+        hidden:   { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    });
+
+    // Column prefs. builtin_key set => a built-in column (rename/reorder/hide only,
+    // never deleted). builtin_key null => a user column, which owns CustomValues.
+    // section_key is a built-in section key or 'custom:<CustomSection.id>'.
+    const ColumnPref = sequelize.define('ColumnPref', {
+        section_key: { type: DataTypes.STRING, allowNull: false },
+        builtin_key: { type: DataTypes.STRING, allowNull: true },
+        label:       { type: DataTypes.STRING, allowNull: false },
+        type:        { type: DataTypes.ENUM('text', 'number', 'money', 'date'), allowNull: false, defaultValue: 'text' },
+        position:    { type: DataTypes.INTEGER, allowNull: true },
+        hidden:      { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    });
+
+    // A row of a custom section.
+    const CustomRow = sequelize.define('CustomRow', {
+        section_id: { type: DataTypes.INTEGER, allowNull: false },
+        position:   { type: DataTypes.INTEGER, allowNull: true },
+    });
+
+    // One cell of a user column. row_id is the built-in model's id for built-in
+    // sections, or CustomRow.id for custom ones (ownership is checked in
+    // layout-store.js before every write).
+    const CustomValue = sequelize.define('CustomValue', {
+        column_id: { type: DataTypes.INTEGER, allowNull: false },
+        row_id:    { type: DataTypes.INTEGER, allowNull: false },
+        value:     { type: DataTypes.TEXT, allowNull: true },
+    }, {
+        indexes: [{ unique: true, fields: ['column_id', 'row_id'] }],
+    });
+
+    // Summary tiles. key = built-in metric key; key null => a user tile that sums
+    // the values of column_id (a number/money user column). No formulas.
+    const TilePref = sequelize.define('TilePref', {
+        key:       { type: DataTypes.STRING, allowNull: true },
+        title:     { type: DataTypes.STRING, allowNull: true },
+        position:  { type: DataTypes.INTEGER, allowNull: true },
+        hidden:    { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+        column_id: { type: DataTypes.INTEGER, allowNull: true },
+    });
+
     return {
         sequelize,
         Subscription,
@@ -267,6 +326,12 @@ const getDatabase = (username) => {
         CreditScore,
         Snapshot,
         Transaction,
+        SectionPref,
+        CustomSection,
+        ColumnPref,
+        CustomRow,
+        CustomValue,
+        TilePref,
     };
 }
 
