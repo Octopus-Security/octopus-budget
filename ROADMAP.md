@@ -130,6 +130,11 @@ label STRING, amount FLOAT, date DATEONLY }`.
   audit that every query is scoped by `req.user.username` (it is, via
   `getDatabase(username)`), and add per-user data export/delete.
 
+- **Custom tiles -> Snapshot history**: custom tile values (sums of user columns) are not yet
+  recorded in the daily Snapshot, so they cannot be graphed. Needs a generic place to store
+  per-tile daily values (e.g. a `TileSnapshot { date, tile_id, value }` table written in the
+  `GET /` upsert) and a dataset per custom tile in `graphs.ejs`.
+
 ---
 
 ## Snapshot columns cheat-sheet
