@@ -1,0 +1,3 @@
+<%- include('column_manager', { s }) %>
+<%- include('table', { s, rows: layout.customRows[s.id] || [], icons: {} }) %>
+                <button type="button" data-act="row-add" data-section-id="<%= s.id %>" style="margin-top:10px;">+ Add row</button>

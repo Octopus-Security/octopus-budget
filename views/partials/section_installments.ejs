@@ -1,0 +1,94 @@
+            <!-- Provider allowances: "used" is auto-summed from the plans below -->
+            <div style="margin-bottom:20px;">
+                <p style="font-size:12px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;">Allowances — used vs available</p>
+                <% providers.forEach(p => { %>
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1a1a1a;flex-wrap:wrap;">
+                    <div style="min-width:110px;display:flex;align-items:center;gap:7px;">
+                        <% if (p.icon_url) { %>
+                            <img src="<%= p.icon_url %>" style="width:20px;height:20px;object-fit:contain;border-radius:3px;vertical-align:middle;" onerror="this.style.display='none'">
+                        <% } %>
+                        <span style="font-weight:600;"><%= p.name %></span>
+                        <% if (!p.builtin) { %>
+                            <a href="/providers/delete/<%= p.id %>" style="color:#e55;font-size:11px;text-decoration:none;" onclick="return confirm('Remove <%= p.name %>? Plans stay, allowance tracking is removed.')">✕</a>
+                        <% } %>
+                    </div>
+                    <% if (p.allowance > 0) { %>
+                        <div style="flex:1;min-width:170px;">
+                            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+                                <span style="color:#ff7878;">$<%= p.used.toFixed(2) %> used</span>
+                                <span style="color:#3fb950;">$<%= p.available.toFixed(2) %> left</span>
+                            </div>
+                            <div style="background:#222;border-radius:3px;height:6px;overflow:hidden;">
+                                <div style="height:100%;width:<%= p.pct.toFixed(0) %>%;background:<%= p.pct > 80 ? '#e55' : p.pct > 50 ? '#e3b341' : '#3fb950' %>;"></div>
+                            </div>
+                            <span style="font-size:11px;color:#666;"><%= p.pct.toFixed(0) %>% of $<%= p.allowance.toFixed(2) %> allowance</span>
+                        </div>
+                    <% } else { %>
+                        <span style="flex:1;min-width:170px;font-size:12px;color:#666;">$<%= p.used.toFixed(2) %> in active plans — set an allowance to track usage</span>
+                    <% } %>
+                    <form action="/providers" method="post" style="display:flex;flex-direction:column;gap:4px;margin:0;align-items:flex-end;">
+                        <input type="hidden" name="name" value="<%= p.name %>">
+                        <div style="display:flex;gap:6px;align-items:center;">
+                            <input type="number" step="0.01" name="allowance" value="<%= p.allowance || '' %>" placeholder="allowance" style="width:110px;padding:6px 8px;font-size:13px;">
+                            <button type="submit" style="padding:6px 12px;font-size:12px;">Set</button>
+                        </div>
+                        <input type="url" name="icon_url" value="<%= p.icon_url || '' %>" placeholder="icon URL (optional)" style="width:100%;max-width:236px;padding:4px 8px;font-size:11px;color:#888;background:#0d0d0d;border:1px solid #222;border-radius:4px;">
+                    </form>
+                </div>
+                <% }) %>
+                <!-- Add a custom provider -->
+                <form action="/providers" method="post" style="display:flex;gap:6px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+                    <input type="text" name="name" placeholder="Add other provider (e.g. Sezzle)" style="flex:1;min-width:130px;padding:6px 8px;font-size:13px;">
+                    <input type="number" step="0.01" name="allowance" placeholder="allowance" style="width:95px;padding:6px 8px;font-size:13px;">
+                    <input type="url" name="icon_url" placeholder="icon URL" style="width:130px;padding:6px 8px;font-size:13px;">
+                    <button type="submit" style="padding:6px 12px;font-size:12px;">+ Add</button>
+                </form>
+            </div>
+
+            <% const providerIconMap = {}; providers.forEach(p => { providerIconMap[p.name.toLowerCase()] = p.icon_url; }); %>
+<%- include('column_manager', { s }) %>
+<%- include('table', { s, rows: installments, icons: providerIconMap }) %>
+            <h3 style="font-size: 1rem; margin: 20px 0 15px; color: #aaa;">Add Plan</h3>
+            <form action="/installments" method="post">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" name="name" placeholder="e.g., PS5 via Affirm" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Provider</label>
+                        <select name="provider" id="providerSelect" onchange="toggleProviderOther(this.value)">
+                            <% providers.forEach(p => { %>
+                            <option value="<%= p.name %>"><%= p.name %></option>
+                            <% }) %>
+                            <option value="__other__">➕ Add other…</option>
+                        </select>
+                        <input type="text" name="provider_other" id="providerOther" placeholder="New provider name" style="display:none;margin-top:6px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Total Amount</label>
+                        <input type="number" step="0.01" name="total_amount" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Amount</label>
+                        <input type="number" step="0.01" name="payment_amount" placeholder="per payment" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Payments Remaining</label>
+                        <input type="number" min="1" name="remaining_payments" placeholder="e.g. 3" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Frequency</label>
+                        <select name="frequency">
+                            <option value="biweekly">Bi-weekly (Pay in 4)</option>
+                            <option value="monthly">Monthly</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Next Due Date</label>
+                        <input type="date" name="next_due_date" required>
+                    </div>
+                    <%- include('custom_inputs', { s }) %>
+                </div>
+                <button type="submit">Add Plan</button>
+            </form>

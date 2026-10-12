@@ -1,0 +1,17 @@
+<%- include('column_manager', { s }) %>
+<%- include('table', { s, rows: accounts, icons: {} }) %>
+                <h3 style="font-size: 1rem; margin-bottom: 15px; color: #aaa;">Add/Update Account</h3>
+                <form action="/accounts" method="post">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Name</label>
+                            <input type="text" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Balance</label>
+                            <input type="number" step="0.01" name="balance" required>
+                        </div>
+                        <%- include('custom_inputs', { s }) %>
+                    </div>
+                    <button type="submit">Add/Update</button>
+                </form>

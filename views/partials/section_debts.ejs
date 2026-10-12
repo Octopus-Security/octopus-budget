@@ -1,0 +1,29 @@
+<%- include('column_manager', { s }) %>
+<%- include('table', { s, rows: debts, icons: {} }) %>
+                <h3 style="font-size: 1rem; margin-bottom: 15px; color: #aaa;">Add/Update Debt</h3>
+                <form action="/debts" method="post">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Debt Name</label>
+                            <input type="text" name="name" placeholder="e.g., Chase Visa" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Current Balance</label>
+                            <input type="number" step="0.01" name="amount" placeholder="0.00" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Credit Limit <span style="color:#666;font-size:11px;">(optional)</span></label>
+                            <input type="number" step="0.01" name="credit_limit" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Min Payment <span style="color:#666;font-size:11px;">(optional)</span></label>
+                            <input type="number" step="0.01" name="minimum_payment" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label>Due Day <span style="color:#666;font-size:11px;">day of month 1–28</span></label>
+                            <input type="number" min="1" max="28" name="due_day" placeholder="e.g. 15">
+                        </div>
+                        <%- include('custom_inputs', { s }) %>
+                    </div>
+                    <button type="submit">Add/Update</button>
+                </form>

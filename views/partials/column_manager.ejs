@@ -1,0 +1,30 @@
+<%# Column manager (edit mode only): rename, reorder, hide/show or delete, and add. %>
+<div class="edit-only" data-display="block" style="display:none;margin:6px 0 14px;padding:8px 10px;border:1px dashed #333;border-radius:6px;">
+    <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Columns</div>
+    <% s.columns.forEach(c => { %>
+    <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;flex-wrap:wrap;<%= c.hidden ? 'opacity:0.55;' : '' %>">
+        <input type="text" class="lay-input" value="<%= c.label %>" maxlength="60" aria-label="Column name"
+               data-act="col-rename" data-section="<%= s.key %>" data-key="<%= c.key %>" style="width:140px;padding:3px 7px;font-size:12px;">
+        <% if (!c.builtin) { %><span style="font-size:11px;color:#666;min-width:44px;"><%= c.type %></span><% } %>
+        <button type="button" class="lay-btn" data-act="col-move" data-section="<%= s.key %>" data-key="<%= c.key %>" data-dir="-1" title="Move left">←</button>
+        <button type="button" class="lay-btn" data-act="col-move" data-section="<%= s.key %>" data-key="<%= c.key %>" data-dir="1" title="Move right">→</button>
+        <% if (c.builtin) { %>
+        <button type="button" class="lay-btn" data-act="col-hide" data-section="<%= s.key %>" data-key="<%= c.key %>" data-hidden="<%= c.hidden ? '0' : '1' %>"><%= c.hidden ? 'Show' : 'Hide' %></button>
+        <% } else { %>
+        <button type="button" class="lay-btn" data-act="col-hide" data-section="<%= s.key %>" data-key="<%= c.key %>" data-hidden="<%= c.hidden ? '0' : '1' %>"><%= c.hidden ? 'Show' : 'Hide' %></button>
+        <button type="button" class="lay-btn lay-danger" data-act="col-delete" data-section="<%= s.key %>" data-key="<%= c.key %>"
+                data-confirm="Delete this column and every value in it?">Delete</button>
+        <% } %>
+    </div>
+    <% }) %>
+    <div style="display:flex;gap:4px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+        <input type="text" class="lay-input" maxlength="60" placeholder="New column name" aria-label="New column name" data-newcol-label="<%= s.key %>" style="width:150px;padding:3px 7px;font-size:12px;">
+        <select class="lay-input" aria-label="New column type" data-newcol-type="<%= s.key %>" style="padding:3px 7px;font-size:12px;">
+            <option value="text">Text</option>
+            <option value="number">Number</option>
+            <option value="money">Money</option>
+            <option value="date">Date</option>
+        </select>
+        <button type="button" class="lay-btn" data-act="col-add" data-section="<%= s.key %>">+ Add column</button>
+    </div>
+</div>

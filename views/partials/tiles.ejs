@@ -1,0 +1,43 @@
+<%# Summary tiles. Values are computed server-side (layout.tiles[].text); nothing is recomputed here. %>
+<div class="summary-grid">
+    <% layout.tiles.filter(t => !t.hidden).forEach(t => { %>
+    <div class="summary-card <%= t.cls %>" data-tile="<%= t.key %>">
+        <h3><%= t.icon %> <%= t.title %></h3>
+        <div class="amount"><%= t.text %></div>
+        <% if (t.sub) { %><div class="stat-label"><%= t.sub %></div><% } %>
+        <div class="edit-only" data-display="flex" style="display:none;gap:3px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+            <input type="text" class="lay-input" value="<%= t.title %>" maxlength="60" aria-label="Tile name"
+                   data-act="tile-rename" data-key="<%= t.key %>" style="width:120px;padding:3px 7px;font-size:12px;">
+            <button type="button" class="lay-btn" data-act="tile-move" data-key="<%= t.key %>" data-dir="-1" title="Move left">←</button>
+            <button type="button" class="lay-btn" data-act="tile-move" data-key="<%= t.key %>" data-dir="1" title="Move right">→</button>
+            <button type="button" class="lay-btn" data-act="tile-hide" data-key="<%= t.key %>" data-hidden="1">Hide</button>
+            <% if (!t.builtin) { %>
+            <button type="button" class="lay-btn lay-danger" data-act="tile-delete" data-key="<%= t.key %>" data-confirm="Delete this tile?">Delete</button>
+            <% } %>
+        </div>
+    </div>
+    <% }) %>
+</div>
+<div class="edit-only" data-display="block" style="display:none;margin:-8px 0 20px;padding:8px 10px;border:1px dashed #333;border-radius:6px;">
+    <% const _hiddenTiles = layout.tiles.filter(t => t.hidden); %>
+    <% if (_hiddenTiles.length) { %>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+        <span style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:0.05em;">Hidden tiles</span>
+        <% _hiddenTiles.forEach(t => { %>
+        <button type="button" class="lay-btn" data-act="tile-hide" data-key="<%= t.key %>" data-hidden="0">Show <%= t.title %></button>
+        <% if (!t.builtin) { %><button type="button" class="lay-btn lay-danger" data-act="tile-delete" data-key="<%= t.key %>" data-confirm="Delete this tile?" title="Delete">✕</button><% } %>
+        <% }) %>
+    </div>
+    <% } %>
+    <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+        <input type="text" class="lay-input" maxlength="60" placeholder="New tile title" aria-label="New tile title" id="newTileTitle" style="width:150px;padding:3px 7px;font-size:12px;">
+        <% if (layout.sumColumns.length) { %>
+        <select class="lay-input" id="newTileColumn" aria-label="Column to sum" style="padding:3px 7px;font-size:12px;max-width:100%;">
+            <% layout.sumColumns.forEach(c => { %><option value="<%= c.id %>"><%= c.label %> (<%= c.type %>)</option><% }) %>
+        </select>
+        <button type="button" class="lay-btn" data-act="tile-add">+ Add tile (sum of column)</button>
+        <% } else { %>
+        <span style="font-size:12px;color:#666;">Add a number or money column to any section to create a sum tile.</span>
+        <% } %>
+    </div>
+</div>

@@ -1,0 +1,16 @@
+<%# Section card header. Edit-mode controls are hidden inline (display:none) and shown by layout-edit.js. %>
+<div style="display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+    <h2 style="flex:1;min-width:0;"><%= s.icon %> <%= s.title %><% if (s.key === 'installments' && !s.customTitle) { %> <span style="font-size:0.8rem;color:#555;font-weight:400;">Affirm · Klarna · BNPL</span><% } %></h2>
+    <div class="edit-only" data-display="flex" style="display:none;gap:4px;align-items:center;flex-wrap:wrap;">
+        <input type="text" class="lay-input" value="<%= s.title %>" maxlength="60" aria-label="Section name"
+               data-act="section-rename" data-key="<%= s.key %>" style="width:150px;padding:4px 8px;font-size:13px;">
+        <button type="button" class="lay-btn" data-act="section-move" data-key="<%= s.key %>" data-dir="-1" title="Move up">↑</button>
+        <button type="button" class="lay-btn" data-act="section-move" data-key="<%= s.key %>" data-dir="1" title="Move down">↓</button>
+        <% if (s.builtin) { %>
+        <button type="button" class="lay-btn" data-act="section-hide" data-key="<%= s.key %>" data-hidden="1" title="Hide this section">Hide</button>
+        <% } else { %>
+        <button type="button" class="lay-btn lay-danger" data-act="section-delete" data-key="<%= s.key %>"
+                data-confirm="Delete this section? All of its rows and values will be deleted." title="Delete this section">Delete</button>
+        <% } %>
+    </div>
+</div>

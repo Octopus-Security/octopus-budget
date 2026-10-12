@@ -305,7 +305,18 @@ function tileValue(tile, metrics, valuesByColumn) {
   return { value: sum, text: tile.column_type === 'number' ? formatNumber(sum) : formatMoney(sum) };
 }
 
+/** The stock dashboard with no saved prefs — used if the saved layout cannot be loaded. */
+function fallbackLayout(metrics) {
+  const sections = resolveSections([], []).map(s => ({ ...s, columns: s.table ? resolveColumns(s.key, []) : [] }));
+  const subs = (metrics && metrics.subs) || {};
+  const tiles = resolveTiles([], new Map()).map(t => ({
+    ...t, text: tileValue(t, metrics, {}).text, sub: subs[t.key] || '',
+  }));
+  return { sections, tiles, cv: {}, customRows: {}, sumColumns: [] };
+}
+
 module.exports = {
+  fallbackLayout,
   MAX_LABEL, MAX_TEXT, COLUMN_TYPES,
   SECTIONS, COLUMNS, TILES,
   customSectionKey, customColumnKey, customTileKey,

@@ -1,0 +1,24 @@
+<% const scoreColor = (sc) => !sc ? '#666' : sc >= 740 ? '#3fb950' : sc >= 670 ? '#e3b341' : sc >= 580 ? '#f0a020' : '#ff7878'; %>
+                <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:16px;">
+                    <div style="flex:1;min-width:110px;text-align:center;">
+                        <div style="font-size:12px;color:#888;text-transform:uppercase;letter-spacing:0.05em;">TransUnion</div>
+                        <div style="font-size:34px;font-weight:bold;color:<%= scoreColor(scores.transunion) %>;"><%= scores.transunion || '—' %></div>
+                    </div>
+                    <div style="flex:1;min-width:110px;text-align:center;">
+                        <div style="font-size:12px;color:#888;text-transform:uppercase;letter-spacing:0.05em;">Equifax</div>
+                        <div style="font-size:34px;font-weight:bold;color:<%= scoreColor(scores.equifax) %>;"><%= scores.equifax || '—' %></div>
+                    </div>
+                </div>
+                <form action="/credit-scores" method="post">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>TransUnion</label>
+                            <input type="number" min="300" max="850" name="transunion" value="<%= scores.transunion || '' %>" placeholder="300–850">
+                        </div>
+                        <div class="form-group">
+                            <label>Equifax</label>
+                            <input type="number" min="300" max="850" name="equifax" value="<%= scores.equifax || '' %>" placeholder="300–850">
+                        </div>
+                    </div>
+                    <button type="submit">Update Scores</button>
+                </form>

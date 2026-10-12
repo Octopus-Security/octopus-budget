@@ -1,0 +1,21 @@
+<%- include('column_manager', { s }) %>
+<%- include('table', { s, rows: income, icons: {} }) %>
+                <h3 style="font-size: 1rem; margin-bottom: 15px; color: #aaa;">Add/Update Income</h3>
+                <form action="/income" method="post">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Amount</label>
+                            <input type="number" step="0.01" name="amount" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Frequency</label>
+                            <select name="frequency">
+                                <option value="weekly">Weekly</option>
+                                <option value="biweekly">Bi-weekly</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+                        <%- include('custom_inputs', { s }) %>
+                    </div>
+                    <button type="submit">Add/Update</button>
+                </form>

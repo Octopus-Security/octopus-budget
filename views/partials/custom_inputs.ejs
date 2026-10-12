@@ -1,0 +1,13 @@
+<%# Extra inputs on a built-in add form for that section's visible user columns (saved as CustomValues). %>
+<% s.columns.filter(c => !c.builtin && !c.hidden).forEach(c => { %>
+<div class="form-group">
+    <label><%= c.label %> <span style="color:#666;font-size:11px;">(optional)</span></label>
+    <% if (c.type === 'date') { %>
+    <input type="date" name="cv_<%= c.id %>">
+    <% } else if (c.type === 'number' || c.type === 'money') { %>
+    <input type="number" step="any" name="cv_<%= c.id %>">
+    <% } else { %>
+    <input type="text" name="cv_<%= c.id %>" maxlength="200">
+    <% } %>
+</div>
+<% }) %>

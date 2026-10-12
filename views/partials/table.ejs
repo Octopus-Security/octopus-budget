@@ -1,0 +1,70 @@
+<%# A section's table: headers and cells come from the resolved column list. Expects s, rows, icons. %>
+<%
+    const _cols = s.columns.filter(c => !c.hidden);
+    const _empty = {
+        subscriptions: 'No subscriptions yet', accounts: 'No accounts yet', income: 'No income entries yet',
+        debts: 'No debts yet', installments: 'No installment plans yet',
+        transactions: 'No transactions yet. Log your first expense below.',
+    };
+    const _isCustom = !s.builtin;
+    const _hasActions = s.key !== 'income';
+%>
+<% if (rows.length > 0 || _isCustom) { %>
+<% if (s.key === 'transactions') { %><div style="overflow-x:auto;max-height:340px;overflow-y:auto;"><% } %>
+<table data-section-table="<%= s.key %>">
+    <tr>
+        <% _cols.forEach(col => { %>
+        <th<% if (!col.builtin) { %> data-col-id="<%= col.id %>" data-type="<%= col.type %>"<% } %>><%= col.label %></th>
+        <% }) %>
+        <% if (_hasActions) { %><th data-actions="1">Actions</th><% } %>
+    </tr>
+    <% rows.forEach(row => { %>
+    <tr<% if (_isCustom) { %> data-row-id="<%= row.id %>"<% } %>>
+        <% _cols.forEach(col => { %><%- include('cell', { s, col, row, icons }) %><% }) %>
+        <% if (_hasActions) { %>
+        <%
+            switch (s.key) {
+            case 'subscriptions': %>
+        <td class="actions">
+            <a href="/subscriptions/edit/<%= row.id %>" class="edit-btn">Edit</a>
+            <a href="/subscriptions/delete/<%= row.id %>" class="delete-btn" onclick="return confirm('Delete this subscription?')">Delete</a>
+        </td>
+        <%  break;
+            case 'accounts': %>
+        <td>
+            <a href="/accounts/delete/<%= row.id %>" class="delete-btn" onclick="return confirm('Delete this account?')">Delete</a>
+        </td>
+        <%  break;
+            case 'debts': %>
+        <td>
+            <a href="/debts/delete/<%= row.id %>" class="delete-btn" onclick="return confirm('Delete this debt?')">Delete</a>
+        </td>
+        <%  break;
+            case 'installments': %>
+        <td class="actions">
+            <a href="/installments/paid/<%= row.id %>" class="edit-btn" onclick="return confirm('Mark payment made and advance due date?')">✓ Paid</a>
+            <a href="/installments/delete/<%= row.id %>" class="delete-btn" onclick="return confirm('Remove this installment plan?')">Delete</a>
+        </td>
+        <%  break;
+            case 'transactions': %>
+        <td class="actions">
+            <a href="/transactions/edit/<%= row.id %>" class="edit-btn">Edit</a>
+            <a href="/transactions/delete/<%= row.id %>" class="delete-btn" onclick="return confirm('Delete this transaction?')">Delete</a>
+        </td>
+        <%  break;
+            default: %>
+        <td class="actions">
+            <button type="button" class="delete-btn" data-act="row-delete" data-section-id="<%= s.id %>" data-row-id="<%= row.id %>" style="cursor:pointer;">Delete</button>
+        </td>
+        <%  } %>
+        <% } %>
+    </tr>
+    <% }) %>
+</table>
+<% if (s.key === 'transactions') { %></div><% } %>
+<% } %>
+<% if (_isCustom) { %>
+<p class="empty-state cv-empty-msg"<% if (rows.length > 0) { %> style="display:none;"<% } %>>No rows yet</p>
+<% } else if (rows.length === 0) { %>
+<p class="empty-state"><%= _empty[s.key] %></p>
+<% } %>

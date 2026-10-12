@@ -1,0 +1,26 @@
+<%- include('column_manager', { s }) %>
+<%- include('table', { s, rows: subscriptions, icons: {} }) %>
+                <h3 style="font-size: 1rem; margin-bottom: 15px; color: #aaa;">Add Subscription</h3>
+                <form action="/subscriptions" method="post">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Name</label>
+                            <input type="text" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Amount</label>
+                            <input type="number" step="0.01" name="amount" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Frequency</label>
+                            <select name="frequency">
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                        </div>
+                        <%- include('custom_inputs', { s }) %>
+                    </div>
+                    <button type="submit">Add Subscription</button>
+                </form>

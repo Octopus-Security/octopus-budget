@@ -1,0 +1,111 @@
+<%# One table cell, chosen by section + column key. Built-in cases keep the exact markup the dashboard always had. %>
+<%
+    const _sk = s.key;
+    const _cv = layout.cv || {};
+%>
+<% if (!col.builtin) {
+    const _raw = (_cv[col.id] && _cv[col.id][row.id] != null) ? String(_cv[col.id][row.id]) : '';
+    const _shown = (_raw !== '' && col.type === 'money' && isFinite(Number(_raw))) ? '$' + Number(_raw).toFixed(2) : _raw;
+%><td class="cv-cell" data-col="<%= col.id %>" data-row="<%= row.id %>" data-type="<%= col.type %>" data-raw="<%= _raw %>" title="Click to edit" style="cursor:text;"><% if (_raw === '') { %><span class="cv-empty" style="color:#444;">—</span><% } else { %><%= _shown %><% } %></td>
+<% } else { switch (_sk + '.' + col.key) {
+    case 'subscriptions.name': %>
+                            <td><%= row.name %></td>
+<%      break;
+    case 'subscriptions.amount': %>
+                            <td>$<%= row.amount.toFixed(2) %></td>
+<%      break;
+    case 'subscriptions.frequency': %>
+                            <td><%= row.frequency %></td>
+<%      break;
+    case 'accounts.name': %>
+                            <td><%= row.name %></td>
+<%      break;
+    case 'accounts.balance': %>
+                            <td>$<%= row.balance.toFixed(2) %></td>
+<%      break;
+    case 'income.amount': %>
+                            <td>$<%= row.amount.toFixed(2) %></td>
+<%      break;
+    case 'income.frequency': %>
+                            <td><%= row.frequency %></td>
+<%      break;
+    case 'debts.name': %>
+                            <td><%= row.name %></td>
+<%      break;
+    case 'debts.balance': {
+        const bal = row.balance !== null && row.balance !== undefined ? row.balance : 0; %>
+                            <td>$<%= bal.toFixed(2) %></td>
+<%      break; }
+    case 'debts.credit_limit': {
+        const lim = row.credit_limit; %>
+                            <td><%= lim !== null && lim !== undefined ? '$' + lim.toFixed(2) : '—' %></td>
+<%      break; }
+    case 'debts.available': {
+        const bal = row.balance !== null && row.balance !== undefined ? row.balance : 0;
+        const lim = row.credit_limit;
+        const avail = lim !== null && lim !== undefined ? lim - bal : null;
+        const util = lim ? Math.min(100, (bal / lim) * 100) : null; %>
+                            <td>
+                                <% if (avail !== null) { %>
+                                    <span style="color: <%= avail < 0 ? '#e55' : avail < lim * 0.2 ? '#e3b341' : '#3fb950' %>">
+                                        $<%= avail.toFixed(2) %>
+                                    </span>
+                                    <div style="margin-top:4px;background:#222;border-radius:3px;height:5px;width:80px;overflow:hidden;">
+                                        <div style="height:100%;width:<%= util.toFixed(0) %>%;background:<%= util > 80 ? '#e55' : util > 50 ? '#e3b341' : '#3fb950' %>;border-radius:3px;"></div>
+                                    </div>
+                                    <span style="font-size:11px;color:#666;"><%= util.toFixed(0) %>% used</span>
+                                <% } else { %>
+                                    <span style="color:#666;">—</span>
+                                <% } %>
+                            </td>
+<%      break; }
+    case 'installments.name': %>
+                    <td><%= row.name %></td>
+<%      break;
+    case 'installments.provider': {
+        const plow = (row.provider || '').toLowerCase();
+        const pIcon = icons[plow]; %>
+                    <td style="white-space:nowrap;">
+                        <% if (pIcon) { %>
+                            <img src="<%= pIcon %>" style="width:14px;height:14px;object-fit:contain;border-radius:2px;vertical-align:middle;margin-right:4px;" onerror="this.style.display='none'">
+                        <% } else { %><%= plow === 'affirm' ? '🟢' : plow === 'klarna' ? '🩷' : '💳 ' %><% } %>
+                        <%= row.provider %>
+                    </td>
+<%      break; }
+    case 'installments.payment': %>
+                    <td>$<%= row.payment_amount.toFixed(2) %></td>
+<%      break;
+    case 'installments.remaining': %>
+                    <td><%= row.remaining_payments %> left</td>
+<%      break;
+    case 'installments.total_left': {
+        const left = row.remaining_payments * row.payment_amount; %>
+                    <td>$<%= left.toFixed(2) %></td>
+<%      break; }
+    case 'installments.next_due': {
+        const due  = new Date(row.next_due_date + 'T00:00:00');
+        const today = new Date(); today.setHours(0,0,0,0);
+        const days = Math.round((due - today) / 86400000);
+        const dueLabel = days === 0 ? '<span style="color:#ff7878">Today</span>'
+                       : days < 0   ? `<span style="color:#ff7878">${Math.abs(days)}d overdue</span>`
+                       : days <= 3  ? `<span style="color:#f0c060">${days}d</span>`
+                       : `${days}d`; %>
+                    <td><%- dueLabel %> <span style="color:#555;font-size:11px;">(<%= due.toLocaleDateString('en-US',{month:'short',day:'numeric'}) %>)</span></td>
+<%      break; }
+    case 'transactions.date': %>
+                        <td style="white-space:nowrap;font-size:13px;color:#888;"><%= row.date %></td>
+<%      break;
+    case 'transactions.description': %>
+                        <td><%= row.description %></td>
+<%      break;
+    case 'transactions.category': %>
+                        <td><span style="font-size:12px;color:#888;"><%= row.category || '—' %></span></td>
+<%      break;
+    case 'transactions.amount': {
+        const isExpense = row.amount > 0;
+        const amtColor = isExpense ? '#ff7878' : '#3fb950';
+        const sign = isExpense ? '−' : '+'; %>
+                        <td style="color:<%= amtColor %>;font-weight:600;white-space:nowrap;"><%= sign %>$<%= Math.abs(row.amount).toFixed(2) %></td>
+<%      break; }
+    default: %><td></td>
+<% } } %>

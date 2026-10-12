@@ -6,6 +6,8 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 const getDatabase = require('./database');
+const layoutStore = require('./layout-store');
+const registerLayoutRoutes = require('./layout-routes');
 const { createAuthMiddleware, AuthClient } = require('@octopus-security/auth-client');
 const axios = require('axios');
 
@@ -185,6 +187,9 @@ const requireLogin = async (req, res, next) => {
     });
 };
 
+// Customizable dashboard: /layout/... and /custom/... (JSON, all behind requireLogin).
+registerLayoutRoutes(app, requireLogin, getDatabase);
+
 // Login/register/logout are centralized at auth.octopustechnology.net now.
 app.get('/login', (req, res) => {
     const back = encodeURIComponent(`https://${req.get('host')}/`);
@@ -309,9 +314,8 @@ app.get('/', requireLogin, async (req, res) => {
 
   // Sum positive-amount transactions in the current calendar month.
   const nowStr = new Date().toISOString().slice(0, 7); // YYYY-MM
-  const monthlySpend = transactions
-    .filter(t => t.date && t.date.startsWith(nowStr) && t.amount > 0)
-    .reduce((sum, t) => sum + t.amount, 0);
+  const monthTransactions = transactions.filter(t => t.date && t.date.startsWith(nowStr) && t.amount > 0);
+  const monthlySpend = monthTransactions.reduce((sum, t) => sum + t.amount, 0);
 
   // Upsert today's snapshot so history accumulates automatically for graphs.
   try {
@@ -351,8 +355,28 @@ app.get('/', requireLogin, async (req, res) => {
 
   upcoming.sort((a, b) => a.date - b.date);
 
+  // Every tile value is computed here, never inside the template.
+  let layout;
+  try {
+    layout = await layoutStore.buildLayout(getDatabase(req.user.username), {
+      totalDebt, monthlyIncome, totalAccounts, subscriptionTotal, monthlySpend, netWorth, bnplUsed,
+      subs: {
+        subscriptionTotal: `${subscriptions.length} subscriptions/month`,
+        monthlySpend: `${monthTransactions.length} transactions`,
+      },
+    });
+  } catch (e) {
+    // A broken layout layer must not take the dashboard down with it.
+    console.error('layout build failed:', e.message);
+    layout = null;
+  }
+  if (!layout) {
+    layout = require('./layout').fallbackLayout({ totalDebt, monthlyIncome, totalAccounts, subscriptionTotal, monthlySpend, netWorth, bnplUsed, subs: {} });
+  }
+
   res.render('index', {
     title: 'Budget Tracker',
+    layout,
     subscriptions,
     accounts,
     income,
@@ -369,7 +393,8 @@ app.get('/', requireLogin, async (req, res) => {
 
 app.post('/subscriptions', requireLogin, async (req, res) => {
     const { Subscription } = getDatabase(req.user.username);
-    await Subscription.create(req.body);
+    const created = await Subscription.create(req.body);
+    await layoutStore.saveFormCustomValues(getDatabase(req.user.username), 'subscriptions', created.id, req.body);
     res.redirect('/');
 });
 
@@ -393,39 +418,43 @@ app.get('/subscriptions/delete/:id', requireLogin, async (req, res) => {
     const { Subscription } = getDatabase(req.user.username);
     const subscription = await Subscription.findByPk(req.params.id);
     await subscription.destroy();
+    await layoutStore.deleteRowValues(getDatabase(req.user.username), 'subscriptions', subscription.id);
     res.redirect('/');
 });
 
 app.post('/accounts', requireLogin, async (req, res) => {
     const { Account } = getDatabase(req.user.username);
     const { name, balance } = req.body;
-    const account = await Account.findOne({ where: { name } });
+    let account = await Account.findOne({ where: { name } });
     if (account) {
         account.balance = balance;
         await account.save();
     } else {
-        await Account.create(req.body);
+        account = await Account.create(req.body);
     }
+    await layoutStore.saveFormCustomValues(getDatabase(req.user.username), 'accounts', account.id, req.body);
     res.redirect('/');
 });
 
 app.get('/accounts/delete/:id', requireLogin, async (req, res) => {
     const { Account } = getDatabase(req.user.username);
     await Account.destroy({ where: { id: req.params.id } });
+    await layoutStore.deleteRowValues(getDatabase(req.user.username), 'accounts', Number(req.params.id));
     res.redirect('/');
 });
 
 app.post('/income', requireLogin, async (req, res) => {
     const { Income } = getDatabase(req.user.username);
     // For simplicity, assuming only one income entry
-    const income = await Income.findOne();
+    let income = await Income.findOne();
     if (income) {
         income.amount = req.body.amount;
         income.frequency = req.body.frequency;
         await income.save();
     } else {
-        await Income.create(req.body);
+        income = await Income.create(req.body);
     }
+    await layoutStore.saveFormCustomValues(getDatabase(req.user.username), 'income', income.id, req.body);
     res.redirect('/');
 });
 
@@ -436,7 +465,7 @@ app.post('/debts', requireLogin, async (req, res) => {
     const parsedLimit = credit_limit !== '' && credit_limit !== undefined ? parseFloat(credit_limit) : null;
     const parsedMin   = minimum_payment !== '' && minimum_payment !== undefined ? parseFloat(minimum_payment) : null;
     const parsedDay   = due_day !== '' && due_day !== undefined ? parseInt(due_day) : null;
-    const debt = await Debt.findOne({ where: { name } });
+    let debt = await Debt.findOne({ where: { name } });
     if (debt) {
         debt.amount = parsedAmount;
         debt.balance = parsedAmount;
@@ -445,7 +474,7 @@ app.post('/debts', requireLogin, async (req, res) => {
         if (parsedDay   !== null) debt.due_day = parsedDay;
         await debt.save();
     } else {
-        await Debt.create({
+        debt = await Debt.create({
             name,
             amount: parsedAmount,
             balance: parsedAmount,
@@ -454,12 +483,14 @@ app.post('/debts', requireLogin, async (req, res) => {
             due_day: parsedDay,
         });
     }
+    await layoutStore.saveFormCustomValues(getDatabase(req.user.username), 'debts', debt.id, req.body);
     res.redirect('/');
 });
 
 app.get('/debts/delete/:id', requireLogin, async (req, res) => {
     const { Debt } = getDatabase(req.user.username);
     await Debt.destroy({ where: { id: req.params.id } });
+    await layoutStore.deleteRowValues(getDatabase(req.user.username), 'debts', Number(req.params.id));
     res.redirect('/');
 });
 
@@ -516,7 +547,7 @@ app.post('/installments', requireLogin, async (req, res) => {
         provider = (provider_other || '').trim() || 'Other';
         await Provider.findOrCreate({ where: { name: provider }, defaults: { name: provider, allowance: 0, builtin: false } });
     }
-    await Installment.create({
+    const plan = await Installment.create({
         name,
         provider: provider || 'Other',
         total_amount: parseFloat(total_amount),
@@ -526,6 +557,7 @@ app.post('/installments', requireLogin, async (req, res) => {
         frequency: frequency || 'biweekly',
         notes: notes || null,
     });
+    await layoutStore.saveFormCustomValues(getDatabase(req.user.username), 'installments', plan.id, req.body);
     res.redirect('/');
 });
 
@@ -551,6 +583,7 @@ app.get('/installments/paid/:id', requireLogin, async (req, res) => {
 app.get('/installments/delete/:id', requireLogin, async (req, res) => {
     const { Installment } = getDatabase(req.user.username);
     await Installment.destroy({ where: { id: req.params.id } });
+    await layoutStore.deleteRowValues(getDatabase(req.user.username), 'installments', Number(req.params.id));
     res.redirect('/');
 });
 
@@ -559,7 +592,7 @@ app.post('/transactions', requireLogin, async (req, res) => {
     const { Transaction } = getDatabase(req.user.username);
     const { description, amount, category, account_id, provider, date, notes } = req.body;
     const today = new Date().toISOString().slice(0, 10);
-    await Transaction.create({
+    const tx = await Transaction.create({
         description,
         amount: parseFloat(amount),
         category: category || null,
@@ -568,6 +601,7 @@ app.post('/transactions', requireLogin, async (req, res) => {
         date: date || today,
         notes: notes || null,
     });
+    await layoutStore.saveFormCustomValues(getDatabase(req.user.username), 'transactions', tx.id, req.body);
     res.redirect('/');
 });
 
@@ -597,6 +631,7 @@ app.post('/transactions/edit/:id', requireLogin, async (req, res) => {
 app.get('/transactions/delete/:id', requireLogin, async (req, res) => {
     const { Transaction } = getDatabase(req.user.username);
     await Transaction.destroy({ where: { id: req.params.id } });
+    await layoutStore.deleteRowValues(getDatabase(req.user.username), 'transactions', Number(req.params.id));
     res.redirect('/');
 });
 
@@ -748,6 +783,7 @@ app.delete('/api/subscriptions/:id', authenticateJWT, async (req, res) => {
         }
         
         await subscription.destroy();
+        await layoutStore.deleteRowValues(getDatabase(req.user.username), 'subscriptions', subscription.id);
         res.status(204).send();
     } catch (error) {
         console.error('API delete subscription error:', error);
@@ -818,6 +854,7 @@ app.delete('/api/accounts/:id', authenticateJWT, async (req, res) => {
         }
         
         await account.destroy();
+        await layoutStore.deleteRowValues(getDatabase(req.user.username), 'accounts', account.id);
         res.status(204).send();
     } catch (error) {
         console.error('API delete account error:', error);
@@ -888,6 +925,7 @@ app.delete('/api/income/:id', authenticateJWT, async (req, res) => {
         }
         
         await income.destroy();
+        await layoutStore.deleteRowValues(getDatabase(req.user.username), 'income', income.id);
         res.status(204).send();
     } catch (error) {
         console.error('API delete income error:', error);
@@ -974,6 +1012,7 @@ app.delete('/api/debts/:id', authenticateJWT, async (req, res) => {
         }
         
         await debt.destroy();
+        await layoutStore.deleteRowValues(getDatabase(req.user.username), 'debts', debt.id);
         res.status(204).send();
     } catch (error) {
         console.error('API delete debt error:', error);
