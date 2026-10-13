@@ -1,0 +1,20 @@
+<div class="form-grid">
+    <div class="form-group"><label>Name</label><input name="name" value="<%= s.name %>" required maxlength="80"></div>
+    <div class="form-group"><label>Estimated amount per check ($)</label><input type="number" name="amount" step="0.01" min="0" value="<%= s.amount %>" required></div>
+    <div class="form-group"><label>Schedule</label>
+        <select name="schedule_type">
+            <% [['weekly','Weekly'],['biweekly','Every 2 weeks'],['semi_monthly','Twice a month'],['monthly','Monthly'],['custom','Custom dates']].forEach(function (o) { %>
+            <option value="<%= o[0] %>" <%= s.schedule_type === o[0] ? 'selected' : '' %>><%= o[1] %></option>
+            <% }) %>
+        </select></div>
+    <div class="form-group"><label>A known payday (weekly / every 2 weeks)</label><input type="date" name="anchor_date" value="<%= s.anchor_date || '' %>"></div>
+    <div class="form-group"><label>Day of month (twice a month: first / monthly)</label><input type="number" name="day1" min="1" max="31" value="<%= days[0] && !String(days[0]).includes('-') ? days[0] : '' %>"></div>
+    <div class="form-group"><label>Second day of month (31 = last day)</label><input type="number" name="day2" min="1" max="31" value="<%= days[1] && !String(days[1]).includes('-') ? days[1] : '' %>"></div>
+    <div class="form-group"><label>Custom dates (YYYY-MM-DD, separated by spaces or commas)</label><input name="custom_dates" value="<%= days.filter(function (d) { return String(d).includes('-'); }).join(' ') %>"></div>
+    <div class="form-group"><label>When payday is a weekend or holiday</label>
+        <select name="holiday_rule">
+            <option value="previous_business_day" <%= s.holiday_rule !== 'none' ? 'selected' : '' %>>Paid the previous business day</option>
+            <option value="none" <%= s.holiday_rule === 'none' ? 'selected' : '' %>>Not adjusted</option>
+        </select></div>
+    <div class="form-group"><label><input type="checkbox" name="use_rolling_average" value="on" <%= s.use_rolling_average ? 'checked' : '' %> style="width:auto"> Use the rolling average as the estimate</label></div>
+</div>

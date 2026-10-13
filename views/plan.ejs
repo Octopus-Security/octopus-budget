@@ -1,0 +1,82 @@
+<%- include('partials/planner_head') %>
+<%- include('partials/payday_prompt', { pending: plan.pending, next: 'plan' }) %>
+
+<% if (!plan.hasIncome || !plan.periods.length) { %>
+<div class="card"><div class="empty-state">No paydays to plan with yet. <a href="/paychecks" style="color:#2ecc71">Add an income source and its schedule</a>.</div></div>
+<% } else { %>
+
+<% if (plan.shortfalls.length) { %>
+<div class="error">
+    <strong>Shortfall:</strong>
+    <% plan.shortfalls.slice(0, 5).forEach(function (s) { %>
+        <div><%= s.start %> to <%= s.end %>:
+            <% if (s.overdrawn) { %>bills exceed income by <%= fmt(-s.available) %>.<% } %>
+            <% if (s.shortfall > 0) { %>minimum payments are short by <%= fmt(s.shortfall) %>.<% } %></div>
+    <% }) %>
+    <% if (plan.shortfalls.length > 5) { %><div>...and <%= plan.shortfalls.length - 5 %> more periods.</div><% } %>
+</div>
+<% } %>
+
+<div class="card">
+    <h2>Check to check</h2>
+    <p class="pl-dim">Recomputed every time you open this page from your current subscriptions, installments, debts and paychecks. Income is the recorded amount, otherwise the estimate (marked est.).</p>
+    <% plan.periods.slice(0, plan.shown).forEach(function (p) { %>
+    <div class="card pl-period <%= p.available < 0 || p.debt.shortfall > 0 ? 'bad' : '' %> <%= p.current ? 'current' : '' %>" style="margin:12px 0;">
+        <div class="pl-row"><strong><%= p.start %> to <%= p.end %> <% if (p.current) { %><span class="pl-ok">(this check)</span><% } %></strong>
+            <span class="pl-dim"><%= p.days %> days</span></div>
+        <% p.incomeItems.forEach(function (i) { %>
+        <div class="pl-row"><span><%= i.source %> <span class="pl-dim"><%= i.recorded ? 'actual' : 'est.' %><%= i.needsCheckin ? ', needs check-in' : '' %></span></span><span class="pl-ok">+<%= fmt(i.amount) %></span></div>
+        <% }) %>
+        <% p.bills.forEach(function (b) { %>
+        <div class="pl-row"><span><%= b.date %> &middot; <%= b.name %> <span class="pl-dim"><%= b.kind %></span></span><span>-<%= fmt(b.amount) %></span></div>
+        <% }) %>
+        <% p.reserves.forEach(function (b) { %>
+        <div class="pl-row"><span class="pl-dim">Set aside for <%= b.name %> (no due date set)</span><span class="pl-dim">-<%= fmt(b.amount) %></span></div>
+        <% }) %>
+        <div class="pl-row" style="border-top:1px solid #222;margin-top:6px;padding-top:8px;"><strong>Available after bills</strong>
+            <strong class="<%= p.available < 0 ? 'pl-flag' : 'pl-ok' %>"><%= fmt(p.available) %></strong></div>
+        <% if (plan.debts.length) { %>
+            <% p.debt.lines.forEach(function (l) { %>
+            <div class="pl-row pl-dim"><span>&rarr; <%= l.name %></span><span><%= fmt(l.minimum) %> min<% if (l.extra > 0) { %> + <%= fmt(l.extra) %> extra<% } %></span></div>
+            <% }) %>
+            <% if (p.debt.shortfall > 0) { %><div class="pl-flag">Short <%= fmt(p.debt.shortfall) %> on minimums due this period.</div><% } %>
+            <% if (p.cushion > 0) { %><div class="pl-row pl-dim"><span>Cushion held back</span><span><%= fmt(p.cushion) %></span></div><% } %>
+            <div class="pl-row"><span>Left after debt payments</span><span><%= fmt(p.left) %></span></div>
+        <% } %>
+    </div>
+    <% }) %>
+</div>
+
+<div class="card">
+    <h2>Debt planner</h2>
+    <form method="POST" action="/plan/settings" class="pl-inline" style="margin-bottom:16px;">
+        <div class="form-group"><label>Strategy</label>
+            <select name="strategy">
+                <option value="avalanche" <%= plan.settings.strategy === 'avalanche' ? 'selected' : '' %>>Avalanche (highest APR first)</option>
+                <option value="snowball" <%= plan.settings.strategy === 'snowball' ? 'selected' : '' %>>Snowball (smallest balance first)</option>
+            </select></div>
+        <div class="form-group"><label>Cushion per check ($)</label><input type="number" name="cushion" step="0.01" min="0" value="<%= plan.settings.cushion %>"></div>
+        <div class="form-group"><label>Periods shown</label><input type="number" name="periods_ahead" min="1" max="26" value="<%= plan.settings.periods_ahead %>"></div>
+        <div class="form-group"><label>Average over last N checks</label><input type="number" name="avg_window" min="1" max="24" value="<%= plan.settings.avg_window %>"></div>
+        <button type="submit">Save</button>
+    </form>
+    <% if (!plan.debts.length) { %>
+        <div class="empty-state">No debts tracked. Add one on the dashboard (balance, APR, minimum, due day).</div>
+    <% } else { %>
+    <div class="pl-table"><table>
+        <thead><tr><th>Debt</th><th>Balance</th><th>APR</th><th>Minimum</th><th>Due day</th><th>Payoff</th><th>Interest</th></tr></thead>
+        <tbody>
+        <% plan.debts.forEach(function (d) { %>
+            <tr><td><%= d.name %></td><td><%= fmt(d.startBalance) %></td><td><%= d.apr %>%</td><td><%= fmt(d.minimum) %></td>
+                <td><%= d.due_day || 'not set (assumed 1st)' %></td>
+                <td><%= d.payoffDate || 'beyond ' + 15 + ' years' %></td><td><%= fmt(d.totalInterest) %></td></tr>
+        <% }) %>
+        </tbody>
+    </table></div>
+    <p style="margin-top:12px;"><strong>Total interest:</strong> <%= fmt(plan.totalInterest) %>
+        <% if (plan.payoffDate) { %> &middot; <strong>Debt free:</strong> <%= plan.payoffDate %><% } else { %> &middot; <span class="pl-flag">not all debts clear within 15 years at this pace</span><% } %></p>
+    <p class="pl-dim">Interest accrues daily from the APR on what is left after each check's payments. Minimums are paid first (earliest due first); the rest goes to the strategy's target.</p>
+    <% } %>
+</div>
+<% } %>
+</div></body></html>

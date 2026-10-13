@@ -1,0 +1,26 @@
+<%- include('partials/planner_head') %>
+<div class="card">
+    <h2>Subscription due dates</h2>
+    <p class="pl-dim">The plan needs a real date for each bill. Enter the next date a subscription charges; it steps forward by its billing cycle from there. Without a date, an amount is set aside pro rata each check instead.</p>
+    <% if (!data.subs.length) { %><div class="empty-state">No subscriptions.</div><% } %>
+    <% data.subs.forEach(function (s) { %>
+    <form method="POST" action="/plan/bills/subscription/<%= s.id %>" class="pl-inline" style="margin:10px 0;">
+        <div class="form-group"><label><%= s.name %> &middot; <%= fmt(s.amount) %> / <%= s.frequency %></label>
+            <input type="date" name="next_due_date" value="<%= data.billDates[s.id] || '' %>"></div>
+        <button type="submit">Save</button>
+    </form>
+    <% }) %>
+</div>
+<div class="card">
+    <h2>Debt due days</h2>
+    <% if (!data.debts.length) { %><div class="empty-state">No debts.</div><% } %>
+    <% data.debts.forEach(function (d) { %>
+    <form method="POST" action="/plan/bills/debt/<%= d.id %>" class="pl-inline" style="margin:10px 0;">
+        <div class="form-group"><label><%= d.name %> &middot; minimum <%= fmt(d.minimum_payment || 0) %> &middot; day of month</label>
+            <input type="number" name="due_day" min="1" max="31" value="<%= d.due_day || '' %>"></div>
+        <button type="submit">Save</button>
+    </form>
+    <% }) %>
+</div>
+<div class="card"><h2>Installment plans</h2><p class="pl-dim">BNPL plans already carry their own next due date and frequency; edit them on the dashboard.</p></div>
+</div></body></html>

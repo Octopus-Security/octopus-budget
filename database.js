@@ -256,7 +256,11 @@ const getDatabase = (username) => {
         monthlySpend:      { type: DataTypes.FLOAT,   allowNull: true }
     });
 
+    // Paycheck plan + debt planner tables (planner/models.js): new tables only.
+    const planner = require('./planner/models')(sequelize);
+
     return {
+        ...planner,
         sequelize,
         Subscription,
         Account,

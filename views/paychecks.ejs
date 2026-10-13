@@ -1,0 +1,52 @@
+<%- include('partials/planner_head') %>
+<%- include('partials/payday_prompt', { pending: plan.pending, next: 'paychecks' }) %>
+<% var sched = { weekly:'Weekly', biweekly:'Every 2 weeks', semi_monthly:'Twice a month', monthly:'Monthly', custom:'Custom dates' }; %>
+
+<div class="card">
+    <h2>Income sources</h2>
+    <% if (!data.sources.length) { %><div class="empty-state">No income sources yet.</div><% } %>
+    <% data.sources.forEach(function (s) { var days = S.parseDays(s.days); %>
+    <details class="card" style="margin:10px 0;">
+        <summary><strong><%= s.name %></strong> &middot; <%= fmt(s.amount) %> est. &middot; <%= sched[s.schedule_type] %>
+            <span class="pl-dim"> next: <%= nextPayday[s.id] || 'none' %></span></summary>
+        <form method="POST" action="/paychecks/sources/<%= s.id %>" style="margin-top:12px;">
+            <%- include('partials/source_fields', { s: s, days: days }) %>
+            <button type="submit">Save</button>
+        </form>
+        <p class="pl-dim">Rolling average of last <%= data.settings.avg_window %> checks:
+            <%= averages[s.id] === null ? 'no history yet' : fmt(averages[s.id]) %></p>
+        <div class="actions">
+            <% if (averages[s.id] !== null) { %>
+            <form method="POST" action="/paychecks/sources/<%= s.id %>/apply-average"><button type="submit" class="edit-btn">Set estimate to average</button></form>
+            <% } %>
+            <form method="POST" action="/paychecks/sources/<%= s.id %>/delete" onsubmit="return confirm('Remove this income source? Its history is kept.')"><button type="submit" class="delete-btn">Remove</button></form>
+        </div>
+    </details>
+    <% }) %>
+
+    <h3 style="margin-top:20px;">Add an income source</h3>
+    <form method="POST" action="/paychecks/sources">
+        <%- include('partials/source_fields', { s: { name:'', amount:'', schedule_type:'biweekly', anchor_date:'', holiday_rule:'previous_business_day', use_rolling_average:false }, days: [] }) %>
+        <button type="submit">Add</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Estimated vs actual</h2>
+    <% if (!history.length) { %><div class="empty-state">Nothing recorded yet. Answer the payday question when it appears.</div><% } else { %>
+    <div class="pl-table"><table>
+        <thead><tr><th>Payday</th><th>Source</th><th>Estimated</th><th>Actual</th><th>Difference</th><th>Correct</th></tr></thead>
+        <tbody>
+        <% history.forEach(function (h) { var diff = h.actual_amount - (h.estimated_amount || 0); %>
+            <tr><td><%= h.pay_date %></td><td><%= h.source %></td><td><%= h.estimated_amount == null ? '-' : fmt(h.estimated_amount) %></td>
+                <td><%= fmt(h.actual_amount) %></td>
+                <td class="<%= diff < 0 ? 'pl-flag' : 'pl-ok' %>"><%= h.estimated_amount == null ? '-' : fmt(diff) %></td>
+                <td><form method="POST" action="/paychecks/checkin" class="pl-inline">
+                    <input type="hidden" name="source_id" value="<%= h.source_id %>"><input type="hidden" name="pay_date" value="<%= h.pay_date %>">
+                    <input type="number" name="amount" step="0.01" min="0" value="<%= h.actual_amount.toFixed(2) %>" style="width:110px"><button type="submit" class="edit-btn">Update</button></form></td></tr>
+        <% }) %>
+        </tbody>
+    </table></div>
+    <% } %>
+</div>
+</div></body></html>

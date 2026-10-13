@@ -1,0 +1,17 @@
+<%# Payday check-in banner. Include with pending + next locals. %>
+<% if (pending && pending.length) { %>
+<div class="pl-banner">
+    <h2>💵 Payday check-in</h2>
+    <% pending.forEach(function (p) { %>
+    <form method="POST" action="/paychecks/checkin">
+        <input type="hidden" name="source_id" value="<%= p.source_id %>">
+        <input type="hidden" name="pay_date" value="<%= p.pay_date %>">
+        <input type="hidden" name="next" value="<%= typeof next !== 'undefined' ? next : '' %>">
+        <strong>What did you get paid on <%= p.pay_date %></strong><span class="pl-dim">(<%= p.source %>)</span>?
+        <input type="number" name="amount" step="0.01" min="0" value="<%= p.estimate.toFixed(2) %>" required>
+        <button type="submit">Confirm</button>
+    </form>
+    <% }) %>
+    <p class="pl-dim">Prefilled with the estimate. Confirm it, or type what actually landed.</p>
+</div>
+<% } %>
