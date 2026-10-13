@@ -141,7 +141,9 @@ test('the real login.ejs head renders with a stamped stylesheet', () => {
   const src  = fs.readFileSync(path.join(root, 'views', 'login.ejs'), 'utf8');
   const end  = src.indexOf('</head>');
   const head = end === -1 ? src : src.slice(0, end + 7);
-  const out  = ejs.render(head, { asset, title: 'probe' });
+  // filename is needed now that the head pulls in partials/favicon.ejs via
+  // include() — ejs resolves a relative include against it.
+  const out  = ejs.render(head, { asset, title: 'probe' }, { filename: path.join(root, 'views', 'login.ejs') });
 
   // Built from the same string the app uses, so the test cannot drift from it
   // by a typo in a hand-written pattern.
