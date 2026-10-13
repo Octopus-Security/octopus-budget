@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="<%= asset('/theme.css') %>">
+    <style>
+        .pl-banner { background:#2a2410; border:2px solid #f0c060; border-radius:8px; padding:16px 20px; margin-bottom:20px; }
+        .pl-banner h2 { color:#f0c060; margin-bottom:10px; }
+        .pl-banner form { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:8px 0; }
+        .pl-banner input[type=number] { width:140px; }
+        .pl-period { border-left:4px solid #2ecc71; }
+        .pl-period.bad { border-left-color:#ff7878; }
+        .pl-period.current { background:#101a14; }
+        .pl-flag { color:#ff7878; font-weight:600; }
+        .pl-ok { color:#5df59a; } .pl-dim { color:#777; font-size:0.85rem; }
+        .pl-row { display:flex; justify-content:space-between; gap:12px; padding:4px 0; }
+        .pl-inline { display:flex; gap:8px; flex-wrap:wrap; align-items:end; }
+        .pl-inline .form-group { margin-bottom:0; }
+        .pl-table { overflow-x:auto; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <h1>💰 Budget Tracker</h1>
+            <div class="nav-links">
+                <a href="/">Dashboard</a>
+                <a href="/plan">Paycheck Plan</a>
+                <a href="/paychecks">Paychecks</a>
+                <a href="/plan/bills">Bill dates</a>
+                <a href="/graphs">📈 Trends</a>
+                <a href="/settings">Settings</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
+    </nav>
+    <div class="container">
+        <% if (typeof error !== 'undefined' && error) { %><div class="error"><%= error %></div><% } %>
+        <% if (typeof success !== 'undefined' && success) { %><div class="success"><%= success %></div><% } %>

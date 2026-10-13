@@ -84,3 +84,11 @@ Data is stored in SQLite databases in the `/data` directory. Each user gets thei
 ## License
 
 MIT
+
+## Paycheck plan and debt planner
+`/paychecks` (income sources with weekly / biweekly / semi-monthly / monthly / custom
+schedules, payday check-in, estimated-vs-actual history), `/plan` (check-to-check
+plan and debt planner, `/plan.json` for the raw data), `/plan/bills` (real due
+dates for subscriptions, due days for debts). Code is in `planner/`; the plan is
+computed on every read and never stored. Dashboard widgets can render
+`partials/payday_prompt.ejs` and `computePlan()` from `planner/routes.js`.

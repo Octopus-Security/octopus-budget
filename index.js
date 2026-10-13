@@ -981,6 +981,9 @@ app.delete('/api/debts/:id', authenticateJWT, async (req, res) => {
     }
 });
 
+// Paycheck plan + debt planner (planner/). Registered after requireLogin exists.
+require('./planner/routes').register(app, { requireLogin, getDatabase });
+
 app.listen(port, () => {
   console.log(`Budget Tracker app listening at http://localhost:${port}`);
   console.log(`Data directory: ${dataDir}`);
