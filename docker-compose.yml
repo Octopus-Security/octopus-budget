@@ -10,7 +10,7 @@ services:
     container_name: octopus_budget_tracker
     restart: always
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     volumes:
       - budget_data:/usr/src/app/data
     environment:
