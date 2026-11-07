@@ -15,32 +15,6 @@
             <div class="error"><%= error %></div>
         <% } %>
         
-        <% if (mode === 'register') { %>
-            <form method="POST" action="/register" id="registerForm">
-                <div class="form-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" name="username" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required minlength="12">
-                    <small style="color:#aaa;font-size:0.78rem;">12+ chars, uppercase, lowercase, number, symbol</small>
-                </div>
-                <div class="form-group">
-                    <label for="confirmPassword">Confirm Password</label>
-                    <input type="password" id="confirmPassword" name="confirmPassword" required minlength="12">
-                </div>
-                <div class="form-group">
-                    <label for="inviteCode">Invite Code</label>
-                    <input type="text" id="inviteCode" name="inviteCode" required placeholder="Enter your invite code">
-                </div>
-                <!-- CAPTCHA removed from registration -->
-                <button type="submit">Register</button>
-            </form>
-            <div class="toggle-link">
-                Already have an account? <a href="/login">Login here</a>
-            </div>
-        <% } else { %>
             <div class="form-group">
                 <label for="username">Username</label>
                 <input type="text" id="username" autocomplete="username" required autofocus>
@@ -58,7 +32,6 @@
             <div class="toggle-link">
                 Don't have an account? <a href="/register">Register here</a>
             </div>
-        <% } %>
     </div>
 </body>
 <script>
@@ -77,22 +50,11 @@ async function doLogin() {
     } catch { err.textContent = 'Connection error. Please try again.'; err.style.display = 'block'; }
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && !document.getElementById('registerForm')) doLogin(); });
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
 document.getElementById('totpCode')?.addEventListener('input', function() {
     let v = this.value.replace(/\D/g, '').slice(0, 6);
     this.value = v.length > 3 ? v.slice(0, 3) + ' ' + v.slice(3) : v;
-});
-
-document.getElementById('registerForm')?.addEventListener('submit', function(e) {
-    const pw = document.getElementById('password').value;
-    const cpw = document.getElementById('confirmPassword').value;
-    if (pw !== cpw) { e.preventDefault(); alert('Passwords do not match.'); return; }
-    if (pw.length < 12) { e.preventDefault(); alert('Password must be at least 12 characters.'); return; }
-    if (!/[A-Z]/.test(pw)) { e.preventDefault(); alert('Password must contain an uppercase letter.'); return; }
-    if (!/[a-z]/.test(pw)) { e.preventDefault(); alert('Password must contain a lowercase letter.'); return; }
-    if (!/[0-9]/.test(pw)) { e.preventDefault(); alert('Password must contain a number.'); return; }
-    if (!/[^A-Za-z0-9]/.test(pw)) { e.preventDefault(); alert('Password must contain a symbol (!@#$% etc.).'); return; }
 });
 </script>
 </html>
