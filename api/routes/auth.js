@@ -1,5 +1,6 @@
 const express = require('express');
 const { AuthClient } = require('@octopus-security/auth-client');
+const { registerAccount } = require('../../registerAccount');
 
 const router = express.Router();
 const auth = new AuthClient();
@@ -15,7 +16,7 @@ router.post('/login', async (req, res) => {
 
 router.post('/register', async (req, res) => {
     try {
-        const r = await auth.register(req.body.username, req.body.password, req.body.email, req.body.inviteCode);
+        const r = await registerAccount(auth, req.body);
         res.status(r.status).json(r.data);
     } catch (error) {
         res.status(503).json({ success: false, error: 'Authentication service unavailable' });

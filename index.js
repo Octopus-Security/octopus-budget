@@ -7,6 +7,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 const getDatabase = require('./database');
 const { createAuthMiddleware, AuthClient } = require('@octopus-security/auth-client');
+const { registerAccount } = require('./registerAccount');
 const axios = require('axios');
 
 const auth = new AuthClient();
@@ -205,7 +206,7 @@ app.get('/logout', (req, res) => {
 // REST API endpoints for mobile app - proxy to auth service
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const r = await auth.register(req.body.username, req.body.password, req.body.email, req.body.inviteCode);
+        const r = await registerAccount(auth, req.body);
         res.status(r.status).json(r.data);
     } catch (error) {
         res.status(503).json({ success: false, error: 'Auth service unavailable' });

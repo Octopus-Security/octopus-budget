@@ -34,6 +34,12 @@
                     <label for="inviteCode">Invite Code</label>
                     <input type="text" id="inviteCode" name="inviteCode" required placeholder="Enter your invite code">
                 </div>
+                <div class="form-group">
+                    <label for="ageConfirmed" style="display:flex;gap:10px;align-items:center;min-height:44px;cursor:pointer;">
+                        <input type="checkbox" id="ageConfirmed" name="ageConfirmed" value="true" required style="width:24px;height:24px;flex:none;margin:0;">
+                        <span>I confirm I am 18 or older</span>
+                    </label>
+                </div>
                 <!-- CAPTCHA removed from registration -->
                 <button type="submit">Register</button>
             </form>
@@ -87,6 +93,7 @@ document.getElementById('totpCode')?.addEventListener('input', function() {
 document.getElementById('registerForm')?.addEventListener('submit', function(e) {
     const pw = document.getElementById('password').value;
     const cpw = document.getElementById('confirmPassword').value;
+    if (!document.getElementById('ageConfirmed').checked) { e.preventDefault(); alert('You must confirm you are 18 or older to register.'); return; }
     if (pw !== cpw) { e.preventDefault(); alert('Passwords do not match.'); return; }
     if (pw.length < 12) { e.preventDefault(); alert('Password must be at least 12 characters.'); return; }
     if (!/[A-Z]/.test(pw)) { e.preventDefault(); alert('Password must contain an uppercase letter.'); return; }
