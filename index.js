@@ -263,14 +263,14 @@ app.get('/logout', (req, res) => {
     res.redirect(`${base}/logout?redirect=${back}`);
 });
 
-// REST API endpoints for mobile app - proxy to auth service
-app.post('/api/auth/register', async (req, res) => {
-    try {
-        const r = await auth.register(req.body.username, req.body.password, req.body.email, req.body.inviteCode);
-        res.status(r.status).json(r.data);
-    } catch (error) {
-        res.status(503).json({ success: false, error: 'Auth service unavailable' });
-    }
+// Account creation lives ONLY on octopus-auth's own signup page (owner decision
+// 2026-11-07). This app never creates accounts; the old proxy to auth is gone.
+// 410, not 404: the route existed, and the body says where signup is now.
+app.post('/api/auth/register', (req, res) => {
+    res.status(410).json({
+        success: false,
+        error: 'Signup moved: create an account at ' + AUTH_LOGIN_URL.replace(/\/login$/, '') + '/register',
+    });
 });
 
 app.post('/api/auth/login', async (req, res) => {
