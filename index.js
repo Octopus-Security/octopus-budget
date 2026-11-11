@@ -75,6 +75,7 @@ const { BUILD, STARTED_AT, asset } = require('./build');
 // module load — which is not a broken page, it is a container that never
 // starts. That is exactly what shipped, and budget 502'd until it was fixed.
 app.locals.asset = asset;
+require('./kitDialog').mountKitDialog(app); // themed dialogs, before any auth gate
 
 app.get('/health', (req, res) => res.json({ status: 'ok', service: 'octopus-budget' }));
 
