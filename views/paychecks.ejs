@@ -19,7 +19,7 @@
             <% if (averages[s.id] !== null) { %>
             <form method="POST" action="/paychecks/sources/<%= s.id %>/apply-average"><button type="submit" class="edit-btn">Set estimate to average</button></form>
             <% } %>
-            <form method="POST" action="/paychecks/sources/<%= s.id %>/delete" onsubmit="return confirm('Remove this income source? Its history is kept.')"><button type="submit" class="delete-btn">Remove</button></form>
+            <form method="POST" action="/paychecks/sources/<%= s.id %>/delete" data-confirm="Remove this income source? Its history is kept." data-confirm-label="Remove"><button type="submit" class="delete-btn">Remove</button></form>
         </div>
     </details>
     <% }) %>

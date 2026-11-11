@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= title %></title>
     <link rel="stylesheet" href="<%= asset('/theme.css') %>">
+    <%- typeof kitDialogHead !== 'undefined' ? kitDialogHead : '' %>
+    <script src="<%= asset('/confirm-actions.js') %>" defer></script>
 </head>
 <body>
     <nav>
@@ -187,7 +189,7 @@
                             <td><%= subscription.frequency %></td>
                             <td class="actions">
                                 <a href="/subscriptions/edit/<%= subscription.id %>" class="edit-btn">Edit</a>
-                                <a href="/subscriptions/delete/<%= subscription.id %>" class="delete-btn" onclick="return confirm('Delete this subscription?')">Delete</a>
+                                <a href="/subscriptions/delete/<%= subscription.id %>" class="delete-btn" data-confirm="Delete this subscription?" data-confirm-label="Delete">Delete</a>
                             </td>
                         </tr>
                     <% }); %>
@@ -235,7 +237,7 @@
                             <td><%= account.name %></td>
                             <td>$<%= account.balance.toFixed(2) %></td>
                             <td>
-                                <a href="/accounts/delete/<%= account.id %>" class="delete-btn" onclick="return confirm('Delete this account?')">Delete</a>
+                                <a href="/accounts/delete/<%= account.id %>" class="delete-btn" data-confirm="Delete this account?" data-confirm-label="Delete">Delete</a>
                             </td>
                         </tr>
                     <% }); %>
@@ -336,7 +338,7 @@
                                 <% } %>
                             </td>
                             <td>
-                                <a href="/debts/delete/<%= debt.id %>" class="delete-btn" onclick="return confirm('Delete this debt?')">Delete</a>
+                                <a href="/debts/delete/<%= debt.id %>" class="delete-btn" data-confirm="Delete this debt?" data-confirm-label="Delete">Delete</a>
                             </td>
                         </tr>
                     <% }); %>
@@ -387,7 +389,7 @@
                         <% } %>
                         <span style="font-weight:600;"><%= p.name %></span>
                         <% if (!p.builtin) { %>
-                            <a href="/providers/delete/<%= p.id %>" style="color:#e55;font-size:11px;text-decoration:none;" onclick="return confirm('Remove <%= p.name %>? Plans stay, allowance tracking is removed.')">✕</a>
+                            <a href="/providers/delete/<%= p.id %>" style="color:#e55;font-size:11px;text-decoration:none;" data-confirm="Remove <%= p.name %>? Plans stay, allowance tracking is removed." data-confirm-label="Remove">✕</a>
                         <% } %>
                     </div>
                     <% if (p.allowance > 0) { %>
@@ -460,8 +462,8 @@
                     <td>$<%= left.toFixed(2) %></td>
                     <td><%- dueLabel %> <span style="color:#555;font-size:11px;">(<%= due.toLocaleDateString('en-US',{month:'short',day:'numeric'}) %>)</span></td>
                     <td class="actions">
-                        <a href="/installments/paid/<%= inst.id %>" class="edit-btn" onclick="return confirm('Mark payment made and advance due date?')">✓ Paid</a>
-                        <a href="/installments/delete/<%= inst.id %>" class="delete-btn" onclick="return confirm('Remove this installment plan?')">Delete</a>
+                        <a href="/installments/paid/<%= inst.id %>" class="edit-btn" data-confirm="Mark payment made and advance due date?" data-confirm-label="Mark paid" data-confirm-danger="0">✓ Paid</a>
+                        <a href="/installments/delete/<%= inst.id %>" class="delete-btn" data-confirm="Remove this installment plan?" data-confirm-label="Remove">Delete</a>
                     </td>
                 </tr>
                 <% }) %>
@@ -568,7 +570,7 @@
                         <td style="color:<%= amtColor %>;font-weight:600;white-space:nowrap;"><%= sign %>$<%= Math.abs(t.amount).toFixed(2) %></td>
                         <td class="actions">
                             <a href="/transactions/edit/<%= t.id %>" class="edit-btn">Edit</a>
-                            <a href="/transactions/delete/<%= t.id %>" class="delete-btn" onclick="return confirm('Delete this transaction?')">Delete</a>
+                            <a href="/transactions/delete/<%= t.id %>" class="delete-btn" data-confirm="Delete this transaction?" data-confirm-label="Delete">Delete</a>
                         </td>
                     </tr>
                     <% }) %>
@@ -657,8 +659,8 @@
         }
     }
 
-    function clearNotes() {
-        if (!confirm('Clear the scratchpad notes?')) return;
+    async function clearNotes() {
+        if (!(await oDialog.confirm({ title: 'Clear notes?', body: 'Clear the scratchpad notes?', confirmLabel: 'Clear', danger: true }))) return;
         const ta = document.getElementById('scratchText');
         ta.value = '';
         localStorage.removeItem('scratchpad');
