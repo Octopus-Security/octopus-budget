@@ -16,6 +16,7 @@
     "body-parser": "^2.2.1",
     "connect-sqlite3": "^0.9.16",
     "ejs": "^3.1.10",
+    "octopus-kit": "https://codeload.github.com/Octopus-Security/octopus-kit/tar.gz/refs/tags/v0.6.0",
     "express": "^5.2.1",
     "express-rate-limit": "^7.0.0",
     "express-session": "^1.18.2",

@@ -7,6 +7,7 @@
     <title><%= title %></title>
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <link rel="stylesheet" href="<%= asset('/theme.css') %>">
+    <%- typeof kitDialogHead !== 'undefined' ? kitDialogHead : '' %>
 </head>
 <body class="login-page">
     <div class="login-container">
@@ -87,12 +88,14 @@ document.getElementById('totpCode')?.addEventListener('input', function() {
 document.getElementById('registerForm')?.addEventListener('submit', function(e) {
     const pw = document.getElementById('password').value;
     const cpw = document.getElementById('confirmPassword').value;
-    if (pw !== cpw) { e.preventDefault(); alert('Passwords do not match.'); return; }
-    if (pw.length < 12) { e.preventDefault(); alert('Password must be at least 12 characters.'); return; }
-    if (!/[A-Z]/.test(pw)) { e.preventDefault(); alert('Password must contain an uppercase letter.'); return; }
-    if (!/[a-z]/.test(pw)) { e.preventDefault(); alert('Password must contain a lowercase letter.'); return; }
-    if (!/[0-9]/.test(pw)) { e.preventDefault(); alert('Password must contain a number.'); return; }
-    if (!/[^A-Za-z0-9]/.test(pw)) { e.preventDefault(); alert('Password must contain a symbol (!@#$% etc.).'); return; }
+    const problem =
+      pw !== cpw ? 'Passwords do not match.' :
+      pw.length < 12 ? 'Password must be at least 12 characters.' :
+      !/[A-Z]/.test(pw) ? 'Password must contain an uppercase letter.' :
+      !/[a-z]/.test(pw) ? 'Password must contain a lowercase letter.' :
+      !/[0-9]/.test(pw) ? 'Password must contain a number.' :
+      !/[^A-Za-z0-9]/.test(pw) ? 'Password must contain a symbol (!@#$% etc.).' : null;
+    if (problem) { e.preventDefault(); oDialog.toast(problem, { kind: 'danger' }); }
 });
 </script>
 </html>

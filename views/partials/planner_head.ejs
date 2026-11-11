@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= title %></title>
     <link rel="stylesheet" href="<%= asset('/theme.css') %>">
+    <%- typeof kitDialogHead !== 'undefined' ? kitDialogHead : '' %>
+    <script src="<%= asset('/confirm-actions.js') %>" defer></script>
     <style>
         .pl-banner { background:#2a2410; border:2px solid #f0c060; border-radius:8px; padding:16px 20px; margin-bottom:20px; }
         .pl-banner h2 { color:#f0c060; margin-bottom:10px; }

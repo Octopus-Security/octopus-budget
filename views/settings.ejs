@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= title %></title>
     <link rel="stylesheet" href="<%= asset('/theme.css') %>">
+    <%- typeof kitDialogHead !== 'undefined' ? kitDialogHead : '' %>
+    <script src="<%= asset('/confirm-actions.js') %>" defer></script>
 </head>
 <body>
     <nav>
@@ -52,7 +54,7 @@
         <div class="card danger-zone">
             <h3>⚠️ Danger Zone</h3>
             <p style="margin-bottom: 15px; color: #666;">This action cannot be undone. All your data will be permanently deleted.</p>
-            <form method="POST" action="/settings/delete-account" onsubmit="return confirm('Are you sure you want to delete your account? This cannot be undone!');">
+            <form method="POST" action="/settings/delete-account" data-confirm="Are you sure you want to delete your account? This cannot be undone!" data-confirm-title="Delete account?" data-confirm-label="Delete account">
                 <div class="form-group">
                     <label>Enter your password to confirm</label>
                     <input type="password" name="password" required>
