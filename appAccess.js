@@ -26,6 +26,7 @@
 
 const CACHE_TTL_MS = 60 * 1000;
 const MAX_CACHE = 5000;
+const FETCH_TIMEOUT_MS = 5000;
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -34,19 +35,28 @@ function escapeHtml(s) {
 function createAppGate({ authUrl, slug, upgradeUrl = '', appName = 'this app', fetchImpl, now = Date.now } = {}) {
   const doFetch = fetchImpl || ((...a) => fetch(...a));
   const cache = new Map();           // username → { allowed, at }
+  const inflight = new Map();        // username → Promise<boolean>
 
   async function allowed(req) {
     const key = req.user && req.user.username;
     const hit = key && cache.get(key);
     if (hit && now() - hit.at < CACHE_TTL_MS) return hit.allowed;
 
+    if (key && inflight.has(key)) return inflight.get(key);
+    const p = check(req, key, hit);
+    if (!key) return p;
+    inflight.set(key, p);
+    try { return await p; } finally { inflight.delete(key); }
+  }
+
+  async function check(req, key, hit) {
     // Ask AS the user: forward whichever credential arrived instead of parsing it.
     const headers = {};
     if (req.get('cookie')) headers.Cookie = req.get('cookie');
     if (req.get('authorization')) headers.Authorization = req.get('authorization');
 
     try {
-      const res = await doFetch(`${authUrl}/api/auth/apps/${encodeURIComponent(slug)}/allowed`, { headers });
+      const res = await doFetch(`${authUrl}/api/auth/apps/${encodeURIComponent(slug)}/allowed`, { headers, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
       if (res.status === 404) {
         console.warn(`[access] "${slug}" is not an app octopus-auth knows — the gate is doing nothing. Check hub-apps.json.`);
         return true;

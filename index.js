@@ -36,7 +36,16 @@ if (!fs.existsSync(dataDir)) {
 }
 
 // Static files
-app.use(express.static(path.join(__dirname, 'public')));
+// Stamped URLs (`/theme.css?v=<hash>`, from asset()) change whenever the file
+// does, so they can be cached for a year. An unstamped request (favicon.svg) keeps
+// the default, because nothing would ever tell a browser it had changed.
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders: (res) => {
+        if (res.req && res.req.query && res.req.query.v) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+    },
+}));
 
 app.set('view engine', 'ejs');
 app.set('views', './views');
@@ -87,8 +96,23 @@ app.get('/api/build', (req, res) => res.json({
 // whole domain; verify it against octopus-auth (cached) and expose req.user.
 const SSO_COOKIE     = 'octopus_sso';
 const AUTH_LOGIN_URL = (process.env.AUTH_PUBLIC_URL || 'https://auth.octopustechnology.net') + '/login';
-const _verifyCache = new Map();   // token -> { user, exp }
+const _verifyCache = new Map();   // token -> { user|null, exp }, insertion order = age
+const _verifyInflight = new Map(); // token -> Promise (one auth call per token at a time)
+const VERIFY_TTL_MS = 5 * 60 * 1000;
+const VERIFY_NEG_TTL_MS = 15 * 1000;  // short: a bad/unreachable answer is retried soon
+const VERIFY_MAX = 1000;
 const _seededUsers = new Set();   // usernames whose DB has been ensured this run
+const _seeding = new Map();       // username -> in-flight ensure Promise
+
+function cacheVerify(token, user) {
+    _verifyCache.delete(token);
+    _verifyCache.set(token, { user, exp: Date.now() + (user ? VERIFY_TTL_MS : VERIFY_NEG_TTL_MS) });
+    if (_verifyCache.size > VERIFY_MAX) {
+        const now = Date.now();
+        for (const [k, v] of _verifyCache) if (v.exp <= now) _verifyCache.delete(k);
+        while (_verifyCache.size > VERIFY_MAX) _verifyCache.delete(_verifyCache.keys().next().value);
+    }
+}
 
 function parseCookies(req) {
     const out = {};
@@ -104,23 +128,44 @@ function parseCookies(req) {
 async function verifyToken(token) {
     const cached = _verifyCache.get(token);
     if (cached && cached.exp > Date.now()) return cached.user;
-    try {
-        const r = await axios.post(`${AUTH_URL}/api/auth/verify`, {}, {
-            headers: { Authorization: `Bearer ${token}` }, timeout: 5000,
-        });
-        if (r.data && r.data.valid && r.data.user) {
-            _verifyCache.set(token, { user: r.data.user, exp: Date.now() + 5 * 60 * 1000 });
-            return r.data.user;
-        }
-    } catch { /* invalid or auth unreachable → unauthenticated */ }
-    return null;
+    if (cached) _verifyCache.delete(token);
+    const running = _verifyInflight.get(token);
+    if (running) return running;
+    const p = (async () => {
+        try {
+            const r = await axios.post(`${AUTH_URL}/api/auth/verify`, {}, {
+                headers: { Authorization: `Bearer ${token}` }, timeout: 5000,
+            });
+            if (r.data && r.data.valid && r.data.user) {
+                cacheVerify(token, r.data.user);
+                return r.data.user;
+            }
+        } catch { /* invalid or auth unreachable -> unauthenticated */ }
+        cacheVerify(token, null);
+        return null;
+    })().finally(() => _verifyInflight.delete(token));
+    _verifyInflight.set(token, p);
+    return p;
 }
 
+// sync({alter:true}) runs once per user per process: _seededUsers records a
+// finished one, _seeding makes concurrent first requests share one run (a
+// failed run is not remembered, so the next request retries).
+// NOTE: alter on SQLite rebuilds tables; the estate rule is to back the volume
+// up first. Behaviour deliberately unchanged here.
 async function ensureUserDb(username) {
     if (_seededUsers.has(username)) return;
-    const { sequelize } = getDatabase(username);
-    await sequelize.sync({ alter: true });
-    _seededUsers.add(username);
+    let p = _seeding.get(username);
+    if (!p) {
+        p = (async () => {
+            const { sequelize } = getDatabase(username);
+            await sequelize.sync({ alter: true });
+            await getDatabase.ensureIndexes(sequelize);
+            _seededUsers.add(username);
+        })().finally(() => _seeding.delete(username));
+        _seeding.set(username, p);
+    }
+    return p;
 }
 
 app.use(async (req, res, next) => {
