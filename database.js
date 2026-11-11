@@ -20,7 +20,7 @@ const path = require('path');
 // the data, so it goes here too — the two agreeing is the point, not duplication.
 const SAFE_USERNAME = /^[A-Za-z0-9_.-]+$/;
 
-const getDatabase = (username) => {
+const resolveStorage = (username) => {
     const name = String(username == null ? '' : username);
     if (!SAFE_USERNAME.test(name)) {
         // Refuse rather than sanitise. Stripping the offending characters would
@@ -36,13 +36,42 @@ const getDatabase = (username) => {
     if (!path.resolve(storage).startsWith(dataDir + path.sep)) {
         throw new Error(`refusing to open a budget database outside data/: ${storage}`);
     }
+    return { name, storage };
+};
 
+// Applied to EVERY new connection (Sequelize's sqlite dialect opens a separate
+// handle per transaction, so once-after-authenticate is not enough). The data
+// dir is the budget_data volume (a directory mount), so WAL's -wal/-shm files
+// have somewhere to live.
+const PRAGMAS = 'PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA synchronous=NORMAL;';
+const applyPragmas = (connection) => new Promise((resolve, reject) => {
+    connection.exec(PRAGMAS, (err) => (err ? reject(err) : resolve()));
+});
+
+function buildInstance(storage) {
     // Initialize Sequelize with SQLite - per-user database for budget data
     const sequelize = new Sequelize({
         dialect: 'sqlite',
         storage,
         logging: false
     });
+
+    // The sqlite dialect's getConnection() never runs Sequelize's afterConnect
+    // hook, so wrap it (as octopus-auth/database.js does for busyTimeout). It is
+    // called on every query and returns a cached handle, hence the WeakSet: the
+    // pragmas run once per distinct connection (default one, plus one per
+    // transaction).
+    const cm = sequelize.connectionManager;
+    const origGetConnection = cm.getConnection.bind(cm);
+    const configured = new WeakSet();
+    cm.getConnection = async function withPragmas(options) {
+        const connection = await origGetConnection(options);
+        if (!configured.has(connection)) {
+            await applyPragmas(connection);
+            configured.add(connection);
+        }
+        return connection;
+    };
 
     // Define the models
     const Subscription = sequelize.define('Subscription', {
@@ -274,4 +303,56 @@ const getDatabase = (username) => {
     };
 }
 
+// ── Per-user instance cache ──────────────────────────────────────────────────
+// This used to build a new Sequelize instance (and, on first query, a new
+// SQLite connection) on EVERY call — 39 call sites, 8 of them in parallel on
+// the dashboard. Keyed by the username that already passed resolveStorage(), so
+// one person's handle can never be returned for another's name; the key is the
+// same string that picks the file.
+const MAX_OPEN = 200;
+const CLOSE_GRACE_MS = 30 * 1000;
+const cache = new Map(); // name -> db object; Map order = recency (oldest first)
+
+const closeLater = (db) => {
+    // Evicted instances may still have a query in flight; give it time, then close.
+    const t = setTimeout(() => { db.sequelize.close().catch(() => {}); }, CLOSE_GRACE_MS);
+    if (t.unref) t.unref();
+};
+
+const getDatabase = (username) => {
+    const { name, storage } = resolveStorage(username);
+    const hit = cache.get(name);
+    if (hit) {
+        cache.delete(name);
+        cache.set(name, hit); // refresh recency
+        return hit;
+    }
+    const db = buildInstance(storage);
+    cache.set(name, db);
+    while (cache.size > MAX_OPEN) {
+        const oldest = cache.keys().next().value;
+        const evicted = cache.get(oldest);
+        cache.delete(oldest);
+        closeLater(evicted);
+    }
+    return db;
+};
+
+// Idempotent: CREATE INDEX IF NOT EXISTS, so it is safe on every start and on
+// databases that already hold data. The model `indexes` option is not used
+// because sync({alter:true}) on SQLite is a table rebuild we do not want to
+// widen. Columns: the dashboard's ORDER BY Transaction.date DESC LIMIT 200 and
+// Installment.next_due_date ASC.
+const INDEXES = [
+    'CREATE INDEX IF NOT EXISTS idx_transactions_date ON Transactions (date)',
+    'CREATE INDEX IF NOT EXISTS idx_installments_next_due_date ON Installments (next_due_date)',
+];
+const ensureIndexes = async (sequelize) => {
+    for (const sql of INDEXES) await sequelize.query(sql);
+};
+
 module.exports = getDatabase;
+module.exports.ensureIndexes = ensureIndexes;
+module.exports.INDEXES = INDEXES;
+module.exports._cacheSize = () => cache.size;
+module.exports._MAX_OPEN = MAX_OPEN;

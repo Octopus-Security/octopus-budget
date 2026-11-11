@@ -95,3 +95,16 @@ test('an empty slug disables the gate', async () => {
   assert.strictEqual((await run(gate)).nexted, true);
   assert.strictEqual(called, false);
 });
+
+test('concurrent checks for one user share a single auth call', async () => {
+  let calls = 0;
+  const gate = make(async () => { calls++; await new Promise(r => setTimeout(r, 20)); return { status: 200, ok: true, json: async () => ({ allowed: true }) }; });
+  await Promise.all([run(gate), run(gate), run(gate)]);
+  assert.strictEqual(calls, 1);
+});
+
+test('the auth call carries a timeout signal', async () => {
+  let opts;
+  await run(make(async (_u, o) => { opts = o; return { status: 200, ok: true, json: async () => ({ allowed: true }) }; }));
+  assert.ok(opts.signal instanceof AbortSignal);
+});
