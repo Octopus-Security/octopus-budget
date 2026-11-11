@@ -140,8 +140,15 @@ async function verifyToken(token) {
                 cacheVerify(token, r.data.user);
                 return r.data.user;
             }
-        } catch { /* invalid or auth unreachable -> unauthenticated */ }
-        cacheVerify(token, null);
+            // Auth answered and said no: a DEFINITE rejection, safe to remember briefly.
+            if (r.data && r.data.valid === false) cacheVerify(token, null);
+        } catch (e) {
+            // Only an explicit 401/403 is a definite rejection. A timeout, network
+            // error or 5xx is an auth blip: unauthenticated for THIS request, but
+            // never remembered, so the next request asks again.
+            const st = e && e.response && e.response.status;
+            if (st === 401 || st === 403) cacheVerify(token, null);
+        }
         return null;
     })().finally(() => _verifyInflight.delete(token));
     _verifyInflight.set(token, p);
@@ -180,8 +187,16 @@ app.use(async (req, res, next) => {
 
 const verifyJWT = createAuthMiddleware();
 // Bearer callers (mobile) get the same app gate as the browser.
+// Bearer routes must reach ensureUserDb too (tables + indexes) or an API-only
+// user, who never loaded a web page, hits missing tables. Declared further down
+// as a function declaration, so it is usable here.
 const authenticateJWT = (req, res, next) =>
-    verifyJWT(req, res, (err) => (err ? next(err) : appAccessGate(req, res, next)));
+    verifyJWT(req, res, (err) => (err ? next(err) : appAccessGate(req, res, async (err2) => {
+        if (err2) return next(err2);
+        try { await ensureUserDb(req.user.username); }
+        catch (e) { console.error('ensureUserDb failed:', e.message); }
+        next();
+    })));
 authenticateJWT.remote = verifyJWT.remote;
 
 // AUTH_REMOTE_VERIFY is a security control, and an unsupported one is SILENT.
