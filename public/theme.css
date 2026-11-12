@@ -7,6 +7,7 @@ body {
     background: #0d0d0d;
     color: #d4d4d4;
     min-height: 100vh;
+    min-height: 100dvh;
 }
 
 h1, h2, h3 { color: #e8e8e8; }
@@ -491,4 +492,10 @@ body.login-page {
 
     /* Upcoming payments stack */
     .upcoming-item { flex-wrap: wrap; gap: 6px; }
+}
+
+/* Inputs are 16px on phones so iOS Safari does not zoom on focus (octopus-kit layout.md rule 12). !important because
+   page and component rules size their own inputs with a more specific selector. */
+@media (max-width: 640px), (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea { font-size: 16px !important; }
 }
