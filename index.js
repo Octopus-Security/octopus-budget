@@ -4,6 +4,11 @@ const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
 const app = express();
+// Security headers + no-store for signed-in answers + message-free error logs (HIPAA map, 2026-11-12 sweep).
+const safeguards = require('./lib/safeguards');
+app.disable('x-powered-by');
+app.use(safeguards.secureHeaders());
+app.use(safeguards.noStoreWhenSignedIn());
 const port = process.env.PORT || 3000;
 const getDatabase = require('./database');
 const { createAuthMiddleware, AuthClient } = require('@octopus-security/auth-client');
@@ -195,7 +200,7 @@ const authenticateJWT = (req, res, next) =>
     verifyJWT(req, res, (err) => (err ? next(err) : appAccessGate(req, res, async (err2) => {
         if (err2) return next(err2);
         try { await ensureUserDb(req.user.username); }
-        catch (e) { console.error('ensureUserDb failed:', e.message); }
+        catch (e) { console.error('ensureUserDb failed:', safeguards.safeError(e)); }
         next();
     })));
 authenticateJWT.remote = verifyJWT.remote;
@@ -241,7 +246,7 @@ const requireLogin = async (req, res, next) => {
     appAccessGate(req, res, async (err) => {
         if (err) return next(err);
         try { await ensureUserDb(req.user.username); }
-        catch (e) { console.error('ensureUserDb failed:', e.message); }
+        catch (e) { console.error('ensureUserDb failed:', safeguards.safeError(e)); }
         next();
     });
 };
@@ -384,7 +389,7 @@ app.get('/', requireLogin, async (req, res) => {
     };
     const [snap, created] = await Snapshot.findOrCreate({ where: { date: todayStr }, defaults: { date: todayStr, ...fields } });
     if (!created) { Object.assign(snap, fields); await snap.save(); }
-  } catch (e) { console.error('snapshot upsert failed:', e.message); }
+  } catch (e) { console.error('snapshot upsert failed:', safeguards.safeError(e)); }
 
   // Build upcoming payments list (next 60 days)
   const today = new Date();
@@ -710,7 +715,7 @@ app.post('/api/internal/transactions', async (req, res) => {
         });
         res.json({ ok: true, id: tx.id, description: tx.description, amount: tx.amount, date: tx.date });
     } catch (e) {
-        console.error('internal transaction create failed:', e.message);
+        console.error('internal transaction create failed:', safeguards.safeError(e));
         res.status(500).json({ error: e.message });
     }
 });
@@ -752,7 +757,7 @@ app.get('/api/subscriptions', authenticateJWT, async (req, res) => {
         const subscriptions = await Subscription.findAll();
         res.json(subscriptions);
     } catch (error) {
-        console.error('API get subscriptions error:', error);
+        console.error('API get subscriptions error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to fetch subscriptions' });
     }
 });
@@ -769,7 +774,7 @@ app.post('/api/subscriptions', authenticateJWT, async (req, res) => {
         const subscription = await Subscription.create({ name, amount, frequency, category, notes });
         res.status(201).json(subscription);
     } catch (error) {
-        console.error('API create subscription error:', error);
+        console.error('API create subscription error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to create subscription' });
     }
 });
@@ -794,7 +799,7 @@ app.put('/api/subscriptions/:id', authenticateJWT, async (req, res) => {
         await subscription.save();
         res.json(subscription);
     } catch (error) {
-        console.error('API update subscription error:', error);
+        console.error('API update subscription error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to update subscription' });
     }
 });
@@ -811,7 +816,7 @@ app.delete('/api/subscriptions/:id', authenticateJWT, async (req, res) => {
         await subscription.destroy();
         res.status(204).send();
     } catch (error) {
-        console.error('API delete subscription error:', error);
+        console.error('API delete subscription error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to delete subscription' });
     }
 });
@@ -823,7 +828,7 @@ app.get('/api/accounts', authenticateJWT, async (req, res) => {
         const accounts = await Account.findAll();
         res.json(accounts);
     } catch (error) {
-        console.error('API get accounts error:', error);
+        console.error('API get accounts error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to fetch accounts' });
     }
 });
@@ -840,7 +845,7 @@ app.post('/api/accounts', authenticateJWT, async (req, res) => {
         const account = await Account.create({ name, balance, type, notes });
         res.status(201).json(account);
     } catch (error) {
-        console.error('API create account error:', error);
+        console.error('API create account error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to create account' });
     }
 });
@@ -864,7 +869,7 @@ app.put('/api/accounts/:id', authenticateJWT, async (req, res) => {
         await account.save();
         res.json(account);
     } catch (error) {
-        console.error('API update account error:', error);
+        console.error('API update account error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to update account' });
     }
 });
@@ -881,7 +886,7 @@ app.delete('/api/accounts/:id', authenticateJWT, async (req, res) => {
         await account.destroy();
         res.status(204).send();
     } catch (error) {
-        console.error('API delete account error:', error);
+        console.error('API delete account error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to delete account' });
     }
 });
@@ -893,7 +898,7 @@ app.get('/api/income', authenticateJWT, async (req, res) => {
         const income = await Income.findAll();
         res.json(income);
     } catch (error) {
-        console.error('API get income error:', error);
+        console.error('API get income error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to fetch income' });
     }
 });
@@ -910,7 +915,7 @@ app.post('/api/income', authenticateJWT, async (req, res) => {
         const income = await Income.create({ source, amount, frequency, notes });
         res.status(201).json(income);
     } catch (error) {
-        console.error('API create income error:', error);
+        console.error('API create income error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to create income' });
     }
 });
@@ -934,7 +939,7 @@ app.put('/api/income/:id', authenticateJWT, async (req, res) => {
         await income.save();
         res.json(income);
     } catch (error) {
-        console.error('API update income error:', error);
+        console.error('API update income error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to update income' });
     }
 });
@@ -951,7 +956,7 @@ app.delete('/api/income/:id', authenticateJWT, async (req, res) => {
         await income.destroy();
         res.status(204).send();
     } catch (error) {
-        console.error('API delete income error:', error);
+        console.error('API delete income error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to delete income' });
     }
 });
@@ -963,7 +968,7 @@ app.get('/api/debts', authenticateJWT, async (req, res) => {
         const debts = await Debt.findAll();
         res.json(debts);
     } catch (error) {
-        console.error('API get debts error:', error);
+        console.error('API get debts error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to fetch debts' });
     }
 });
@@ -994,7 +999,7 @@ app.post('/api/debts', authenticateJWT, async (req, res) => {
         });
         res.status(201).json(debt);
     } catch (error) {
-        console.error('API create debt error:', error);
+        console.error('API create debt error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to create debt' });
     }
 });
@@ -1020,7 +1025,7 @@ app.put('/api/debts/:id', authenticateJWT, async (req, res) => {
         await debt.save();
         res.json(debt);
     } catch (error) {
-        console.error('API update debt error:', error);
+        console.error('API update debt error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to update debt' });
     }
 });
@@ -1037,7 +1042,7 @@ app.delete('/api/debts/:id', authenticateJWT, async (req, res) => {
         await debt.destroy();
         res.status(204).send();
     } catch (error) {
-        console.error('API delete debt error:', error);
+        console.error('API delete debt error:', safeguards.safeError(error));
         res.status(500).json({ error: 'Failed to delete debt' });
     }
 });

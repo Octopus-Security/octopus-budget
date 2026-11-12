@@ -1,3 +1,4 @@
+const safeguards = require('../../lib/safeguards');
 const express = require('express');
 const getDatabase = require('../../database');
 const { authenticateToken } = require('../middleware/auth');
@@ -18,7 +19,7 @@ router.get('/subscriptions', async (req, res) => {
         const subscriptions = await Subscription.findAll();
         res.json({ success: true, data: subscriptions });
     } catch (error) {
-        console.error('Error fetching subscriptions:', error);
+        console.error('Error fetching subscriptions:', safeguards.safeError(error));
         res.status(500).json({ success: false, error: 'Failed to fetch subscriptions' });
     }
 });
@@ -40,7 +41,7 @@ router.post('/subscriptions', async (req, res) => {
         const subscription = await Subscription.create({ name, amount, frequency });
         res.status(201).json({ success: true, data: subscription });
     } catch (error) {
-        console.error('Error creating subscription:', error);
+        console.error('Error creating subscription:', safeguards.safeError(error));
         res.status(500).json({ success: false, error: 'Failed to create subscription' });
     }
 });
@@ -70,7 +71,7 @@ router.put('/subscriptions/:id', async (req, res) => {
         await subscription.save();
         res.json({ success: true, data: subscription });
     } catch (error) {
-        console.error('Error updating subscription:', error);
+        console.error('Error updating subscription:', safeguards.safeError(error));
         res.status(500).json({ success: false, error: 'Failed to update subscription' });
     }
 });
@@ -89,7 +90,7 @@ router.delete('/subscriptions/:id', async (req, res) => {
         await subscription.destroy();
         res.json({ success: true, message: 'Subscription deleted' });
     } catch (error) {
-        console.error('Error deleting subscription:', error);
+        console.error('Error deleting subscription:', safeguards.safeError(error));
         res.status(500).json({ success: false, error: 'Failed to delete subscription' });
     }
 });
@@ -101,7 +102,7 @@ router.get('/accounts', async (req, res) => {
         const accounts = await Account.findAll();
         res.json({ success: true, data: accounts });
     } catch (error) {
-        console.error('Error fetching accounts:', error);
+        console.error('Error fetching accounts:', safeguards.safeError(error));
         res.status(500).json({ success: false, error: 'Failed to fetch accounts' });
     }
 });
@@ -119,7 +120,7 @@ router.post('/accounts', async (req, res) => {
         const account = await Account.create({ name, balance });
         res.status(201).json({ success: true, data: account });
     } catch (error) {
-        console.error('Error creating account:', error);
+        console.error('Error creating account:', safeguards.safeError(error));
         // Handle unique constraint violation
         if (error.name === 'SequelizeUniqueConstraintError') {
             return res.status(400).json({ success: false, error: 'Account with this name already exists' });
@@ -147,7 +148,7 @@ router.put('/accounts/:id', async (req, res) => {
         await account.save();
         res.json({ success: true, data: account });
     } catch (error) {
-        console.error('Error updating account:', error);
+        console.error('Error updating account:', safeguards.safeError(error));
         // Handle unique constraint violation
         if (error.name === 'SequelizeUniqueConstraintError') {
             return res.status(400).json({ success: false, error: 'Account with this name already exists' });
@@ -170,7 +171,7 @@ router.delete('/accounts/:id', async (req, res) => {
         await account.destroy();
         res.json({ success: true, message: 'Account deleted' });
     } catch (error) {
-        console.error('Error deleting account:', error);
+        console.error('Error deleting account:', safeguards.safeError(error));
         res.status(500).json({ success: false, error: 'Failed to delete account' });
     }
 });
@@ -182,7 +183,7 @@ router.get('/income', async (req, res) => {
         const income = await Income.findAll();
         res.json({ success: true, data: income });
     } catch (error) {
-        console.error('Error fetching income:', error);
+        console.error('Error fetching income:', safeguards.safeError(error));
         res.status(500).json({ success: false, error: 'Failed to fetch income' });
     }
 });
@@ -204,7 +205,7 @@ router.post('/income', async (req, res) => {
         const income = await Income.create({ amount, frequency });
         res.status(201).json({ success: true, data: income });
     } catch (error) {
-        console.error('Error creating income:', error);
+        console.error('Error creating income:', safeguards.safeError(error));
         res.status(500).json({ success: false, error: 'Failed to create income' });
     }
 });
@@ -233,7 +234,7 @@ router.put('/income/:id', async (req, res) => {
         await income.save();
         res.json({ success: true, data: income });
     } catch (error) {
-        console.error('Error updating income:', error);
+        console.error('Error updating income:', safeguards.safeError(error));
         res.status(500).json({ success: false, error: 'Failed to update income' });
     }
 });
@@ -252,7 +253,7 @@ router.delete('/income/:id', async (req, res) => {
         await income.destroy();
         res.json({ success: true, message: 'Income deleted' });
     } catch (error) {
-        console.error('Error deleting income:', error);
+        console.error('Error deleting income:', safeguards.safeError(error));
         res.status(500).json({ success: false, error: 'Failed to delete income' });
     }
 });
@@ -264,7 +265,7 @@ router.get('/debts', async (req, res) => {
         const debts = await Debt.findAll();
         res.json({ success: true, data: debts });
     } catch (error) {
-        console.error('Error fetching debts:', error);
+        console.error('Error fetching debts:', safeguards.safeError(error));
         res.status(500).json({ success: false, error: 'Failed to fetch debts' });
     }
 });
@@ -282,7 +283,7 @@ router.post('/debts', async (req, res) => {
         const debt = await Debt.create({ name, balance });
         res.status(201).json({ success: true, data: debt });
     } catch (error) {
-        console.error('Error creating debt:', error);
+        console.error('Error creating debt:', safeguards.safeError(error));
         // Handle unique constraint violation
         if (error.name === 'SequelizeUniqueConstraintError') {
             return res.status(400).json({ success: false, error: 'Debt with this name already exists' });
@@ -310,7 +311,7 @@ router.put('/debts/:id', async (req, res) => {
         await debt.save();
         res.json({ success: true, data: debt });
     } catch (error) {
-        console.error('Error updating debt:', error);
+        console.error('Error updating debt:', safeguards.safeError(error));
         // Handle unique constraint violation
         if (error.name === 'SequelizeUniqueConstraintError') {
             return res.status(400).json({ success: false, error: 'Debt with this name already exists' });
@@ -333,7 +334,7 @@ router.delete('/debts/:id', async (req, res) => {
         await debt.destroy();
         res.json({ success: true, message: 'Debt deleted' });
     } catch (error) {
-        console.error('Error deleting debt:', error);
+        console.error('Error deleting debt:', safeguards.safeError(error));
         res.status(500).json({ success: false, error: 'Failed to delete debt' });
     }
 });
@@ -360,7 +361,7 @@ router.get('/summary', async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error fetching summary:', error);
+        console.error('Error fetching summary:', safeguards.safeError(error));
         res.status(500).json({ success: false, error: 'Failed to fetch budget summary' });
     }
 });
