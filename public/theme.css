@@ -53,6 +53,20 @@ nav a:hover { background: #1a1a1a; color: #2ecc71; }
 }
 .card h2 { color: #e8e8e8; margin-bottom: 20px; }
 
+/* ── Dashboard columns (index) ──────────────────────────────
+   Two independent stacks, not one grid: in a grid every card in a row is as
+   tall as the tallest, so the long Debts + Installments column used to stretch
+   Subscriptions into a big empty box. Below ~1000px the stacks just follow. */
+.dash-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 20px; align-items: start; }
+.dash-col  { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.dash-col > .card, .dash-col > div > .card { margin-bottom: 0; }
+@media (max-width: 520px) { .dash-cols { grid-template-columns: minmax(0, 1fr); } }
+/* A wide table scrolls inside its card instead of running out of it. */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+.table-wrap th, .table-wrap td { padding: 10px 6px; }
+.stack-actions { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.stack-actions a { text-align: center; }
+
 /* ── Dashboard grid ────────────────────────────────────────── */
 .dashboard-grid {
     display: grid;
