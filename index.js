@@ -6,9 +6,11 @@ const path = require('path');
 const app = express();
 // Security headers + no-store for signed-in answers + message-free error logs (HIPAA map, 2026-11-12 sweep).
 const safeguards = require('./lib/safeguards');
+const { refuseCrossSiteChange } = require('./lib/same-site-guard');
 app.disable('x-powered-by');
 app.use(safeguards.secureHeaders());
 app.use(safeguards.noStoreWhenSignedIn());
+app.use(refuseCrossSiteChange);
 const port = process.env.PORT || 3000;
 const getDatabase = require('./database');
 const { createAuthMiddleware, AuthClient } = require('@octopus-security/auth-client');
