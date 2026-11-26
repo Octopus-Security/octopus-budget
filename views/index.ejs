@@ -177,7 +177,7 @@
                 <div class="card">
                     <h2>📺 Subscriptions</h2>
                     <% if (subscriptions.length > 0) { %>
-                    <table>
+                    <div class="table-wrap"><table>
                         <tr>
                             <th>Name</th>
                             <th>Amount</th>
@@ -195,7 +195,7 @@
                                 </td>
                             </tr>
                         <% }); %>
-                    </table>
+                    </table></div>
                     <% } else { %>
                         <p class="empty-state">No subscriptions yet</p>
                     <% } %>
@@ -228,7 +228,7 @@
                 <div class="card">
                     <h2>🏦 Accounts</h2>
                     <% if (accounts.length > 0) { %>
-                    <table>
+                    <div class="table-wrap"><table>
                         <tr>
                             <th>Name</th>
                             <th>Balance</th>
@@ -243,7 +243,7 @@
                                 </td>
                             </tr>
                         <% }); %>
-                    </table>
+                    </table></div>
                     <% } else { %>
                         <p class="empty-state">No accounts yet</p>
                     <% } %>
@@ -267,7 +267,7 @@
                 <div class="card">
                     <h2>💵 Income</h2>
                     <% if (income.length > 0) { %>
-                    <table>
+                    <div class="table-wrap"><table>
                         <tr>
                             <th>Amount</th>
                             <th>Frequency</th>
@@ -278,7 +278,7 @@
                                 <td><%= item.frequency %></td>
                             </tr>
                         <% }); %>
-                    </table>
+                    </table></div>
                     <% } else { %>
                         <p class="empty-state">No income entries yet</p>
                     <% } %>
@@ -337,7 +337,7 @@
                 <div class="card">
                     <h2>💳 Debts</h2>
                     <% if (debts.length > 0) { %>
-                    <table>
+                    <div class="table-wrap"><table>
                         <tr>
                             <th>Name</th>
                             <th>Balance</th>
@@ -374,7 +374,7 @@
                                 </td>
                             </tr>
                         <% }); %>
-                    </table>
+                    </table></div>
                     <% } else { %>
                         <p class="empty-state">No debts yet</p>
                     <% } %>

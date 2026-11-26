@@ -63,7 +63,7 @@
     <% if (!plan.debts.length) { %>
         <div class="empty-state">No debts tracked. Add one on the dashboard (balance, APR, minimum, due day).</div>
     <% } else { %>
-    <div class="pl-table"><table>
+    <div class="pl-table"><div class="table-wrap"><table>
         <thead><tr><th>Debt</th><th>Balance</th><th>APR</th><th>Minimum</th><th>Due day</th><th>Payoff</th><th>Interest</th></tr></thead>
         <tbody>
         <% plan.debts.forEach(function (d) { %>
@@ -72,7 +72,7 @@
                 <td><%= d.payoffDate || 'beyond ' + 15 + ' years' %></td><td><%= fmt(d.totalInterest) %></td></tr>
         <% }) %>
         </tbody>
-    </table></div>
+    </table></div></div>
     <p style="margin-top:12px;"><strong>Total interest:</strong> <%= fmt(plan.totalInterest) %>
         <% if (plan.payoffDate) { %> &middot; <strong>Debt free:</strong> <%= plan.payoffDate %><% } else { %> &middot; <span class="pl-flag">not all debts clear within 15 years at this pace</span><% } %></p>
     <p class="pl-dim">Interest accrues daily from the APR on what is left after each check's payments. Minimums are paid first (earliest due first); the rest goes to the strategy's target.</p>
