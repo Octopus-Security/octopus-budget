@@ -34,7 +34,7 @@
 <div class="card">
     <h2>Estimated vs actual</h2>
     <% if (!history.length) { %><div class="empty-state">Nothing recorded yet. Answer the payday question when it appears.</div><% } else { %>
-    <div class="pl-table"><table>
+    <div class="pl-table"><div class="table-wrap"><table>
         <thead><tr><th>Payday</th><th>Source</th><th>Estimated</th><th>Actual</th><th>Difference</th><th>Correct</th></tr></thead>
         <tbody>
         <% history.forEach(function (h) { var diff = h.actual_amount - (h.estimated_amount || 0); %>
@@ -46,7 +46,7 @@
                     <input type="number" name="amount" step="0.01" min="0" value="<%= h.actual_amount.toFixed(2) %>" style="width:110px"><button type="submit" class="edit-btn">Update</button></form></td></tr>
         <% }) %>
         </tbody>
-    </table></div>
+    </table></div></div>
     <% } %>
 </div>
 </div></body></html>
